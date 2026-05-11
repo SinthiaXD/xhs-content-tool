@@ -1,0 +1,1576 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>小红书本周内容批量确认</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, "PingFang SC", "Helvetica Neue", sans-serif; background: #f5f5f7; color: #1d1d1f; min-height: 100vh; }
+
+  /* ── 顶部进度条 ── */
+  .topbar { background: #fff; border-bottom: 1px solid #e5e5e5; padding: 0 32px; display: flex; align-items: center; justify-content: space-between; height: 60px; position: sticky; top: 0; z-index: 100; }
+  .topbar-title { font-size: 15px; font-weight: 600; }
+  .steps { display: flex; align-items: center; }
+  .step { display: flex; align-items: center; gap: 7px; padding: 0 14px; opacity: 0.4; transition: opacity 0.2s; cursor: default; }
+  .step.active { opacity: 1; }
+  .step.done { opacity: 0.7; }
+  .step.reachable { cursor: pointer; }
+  .step.reachable:hover { opacity: 0.85; }
+  .step-num { width: 22px; height: 22px; border-radius: 50%; background: #e5e5e5; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: #666; flex-shrink: 0; }
+  .step.active .step-num { background: #fe2c55; color: #fff; }
+  .step.done .step-num { background: #34c759; color: #fff; }
+  .step-label { font-size: 13px; font-weight: 500; white-space: nowrap; }
+  .step-divider { width: 16px; height: 1px; background: #e5e5e5; }
+
+  /* ── 通用 ── */
+  .section { display: none; }
+  .section.active { display: block; }
+  .section-header { margin-bottom: 20px; }
+  .section-header h2 { font-size: 20px; font-weight: 700; margin-bottom: 5px; }
+  .section-header p { font-size: 13px; color: #666; }
+  .day-card { background: #fff; border-radius: 14px; padding: 20px; margin-bottom: 16px; border: 2px solid transparent; transition: border-color 0.2s; }
+  .day-card.complete { border-color: #34c759; }
+  .day-tag { background: #fff0f3; color: #fe2c55; font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 20px; white-space: nowrap; }
+  .complete-badge { margin-left: auto; font-size: 13px; color: #34c759; font-weight: 600; display: none; }
+  .day-card.complete .complete-badge { display: block; }
+
+  /* ══ 双栏布局（步骤一、步骤二共用）══ */
+  .dual-layout { display: grid; grid-template-columns: 1fr 300px; gap: 20px; padding: 24px; max-width: 1200px; margin: 0 auto; padding-bottom: 80px; }
+
+  /* 左侧内容池 */
+  .pool-panel { min-width: 0; }
+  .pool-toolbar { display: flex; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; align-items: center; }
+  .pool-toolbar input[type="text"] { flex: 1; min-width: 150px; padding: 8px 14px; border: 1px solid #e5e5e5; border-radius: 20px; font-size: 13px; font-family: inherit; background: #fff; outline: none; }
+  .pool-toolbar input[type="text"]:focus { border-color: #fe2c55; }
+  .filter-btn { padding: 7px 14px; border-radius: 20px; border: 1px solid #e5e5e5; background: #fff; font-size: 12px; font-weight: 500; cursor: pointer; color: #666; white-space: nowrap; transition: all 0.15s; }
+  .filter-btn.active { background: #fe2c55; color: #fff; border-color: #fe2c55; }
+  .sort-select { padding: 7px 12px; border-radius: 20px; border: 1px solid #e5e5e5; background: #fff; font-size: 12px; font-family: inherit; outline: none; cursor: pointer; color: #666; }
+  .pool-count { font-size: 13px; color: #999; margin-bottom: 12px; }
+
+  /* 内容池：列表模式 */
+  .content-pool { display: flex; flex-direction: column; gap: 10px; }
+
+  .pool-item { background: #fff; border-radius: 12px; padding: 14px 16px; display: flex; gap: 14px; align-items: flex-start; border: 2px solid transparent; transition: border-color 0.15s, box-shadow 0.15s; }
+  .pool-item:not(.in-plan):hover { box-shadow: 0 2px 12px rgba(0,0,0,0.08); border-color: #ffd6de; cursor: pointer; }
+  .pool-item.in-plan { border-color: #34c759; opacity: 0.6; }
+  .pool-thumb { width: 52px; height: 70px; border-radius: 8px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 11px; color: rgba(255,255,255,0.85); font-weight: 600; text-align: center; }
+  .pool-body { flex: 1; min-width: 0; }
+  .pool-account { display: flex; align-items: center; gap: 6px; margin-bottom: 5px; }
+  .pool-avatar { width: 18px; height: 18px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 700; color: #fff; flex-shrink: 0; }
+  .pool-account-name { font-size: 12px; color: #999; }
+  .pool-title { font-size: 14px; font-weight: 600; line-height: 1.4; margin-bottom: 8px; }
+  .pool-meta { display: flex; gap: 12px; font-size: 12px; color: #999; flex-wrap: wrap; }
+  .pool-scores { display: flex; gap: 5px; margin-top: 7px; }
+  .score-pill { font-size: 11px; padding: 2px 8px; border-radius: 10px; font-weight: 500; }
+  .s-heat { background: #fff0f3; color: #fe2c55; }
+  .s-persona { background: #f0fff4; color: #34c759; }
+  .s-total { background: #1d1d1f; color: #fff; }
+  .pool-add-btn { padding: 6px 14px; border-radius: 20px; border: none; background: #fe2c55; color: #fff; font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap; transition: opacity 0.15s; }
+  .pool-add-btn:hover { opacity: 0.85; }
+  .pool-add-btn.added { background: #34c759; cursor: default; }
+  .pool-add-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* 展开文字稿（只读） */
+  .pool-item-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; flex-direction: row; align-self: flex-start; margin-top: 2px; }
+  .pool-expand-btn { padding: 5px 12px; border-radius: 20px; border: 1px solid #e5e5e5; background: #fff; font-size: 12px; color: #666; cursor: pointer; white-space: nowrap; transition: all 0.15s; }
+  .pool-expand-btn:hover { background: #f5f5f7; }
+  .pool-expand-btn.open { background: #f5f5f7; border-color: #ccc; }
+  .pool-script { display: none; margin-top: 14px; padding-top: 14px; border-top: 1px solid #f0f0f0; }
+  .pool-script.open { display: block; }
+  .pool-script-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  .pool-script-label { font-size: 12px; font-weight: 700; color: #999; text-transform: uppercase; letter-spacing: 0.5px; }
+  .pool-script-count { font-size: 12px; color: #bbb; }
+  .pool-script-text { font-size: 13px; line-height: 1.8; color: #444; background: #fafafa; border-radius: 10px; padding: 12px 14px; }
+
+  /* 步骤二：转写内容检查 */
+  /* 提示词面板 */
+  .prompt-panel { background: #fff; border-radius: 14px; padding: 20px; margin-bottom: 16px; }
+  .prompt-panel-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+  .prompt-panel-title { font-size: 14px; font-weight: 700; color: #1d1d1f; }
+  .prompt-panel-actions { display: flex; gap: 8px; align-items: center; }
+  .prompt-toggle-btn { padding: 5px 14px; border-radius: 20px; border: 1px solid #e5e5e5; background: #fff; font-size: 12px; color: #666; cursor: pointer; transition: all 0.15s; }
+  .prompt-toggle-btn:hover { background: #f5f5f7; }
+  .prompt-save-btn { padding: 5px 14px; border-radius: 20px; border: none; background: #1d1d1f; color: #fff; font-size: 12px; font-weight: 600; cursor: pointer; opacity: 0; pointer-events: none; transition: opacity 0.2s, background 0.2s; }
+  .prompt-save-btn.dirty { opacity: 1; pointer-events: auto; }
+  .prompt-save-btn.saved { background: #34c759; }
+  .prompt-regen-btn { padding: 5px 14px; border-radius: 20px; border: 1.5px solid #fe2c55; background: #fff; color: #fe2c55; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.15s; white-space: nowrap; }
+  .prompt-regen-btn:hover { background: #fff0f3; }
+  .prompt-regen-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .prompt-regen-btn.generating { border-color: #bbb; color: #999; background: #f5f5f7; }
+  .prompt-body { display: none; }
+  .prompt-body.open { display: block; }
+  .prompt-preview { font-size: 13px; color: #666; line-height: 1.7; background: #f5f5f7; border-radius: 10px; padding: 12px 14px; cursor: pointer; }
+  .prompt-preview:hover { background: #ebebed; }
+  .prompt-textarea { width: 100%; border: 1px solid #e5e5e5; border-radius: 10px; padding: 12px 14px; font-size: 13px; font-family: inherit; color: #1d1d1f; background: #fafafa; resize: vertical; min-height: 120px; line-height: 1.7; outline: none; transition: border-color 0.15s; }
+  .prompt-textarea:focus { border-color: #fe2c55; background: #fff; }
+  .prompt-hint { font-size: 12px; color: #bbb; margin-top: 8px; }
+
+  .transcribe-list { display: flex; flex-direction: column; gap: 16px; }
+  .transcribe-card { background: #fff; border-radius: 14px; padding: 20px; }
+  .transcribe-card-header { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+  .transcribe-card-title { font-size: 14px; font-weight: 600; color: #1d1d1f; flex: 1; }
+  .transcribe-regen-btn { padding: 4px 12px; border-radius: 14px; border: 1.5px solid #d1d1d6; background: #fff; color: #555; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.15s; white-space: nowrap; }
+  .transcribe-regen-btn:hover:not(:disabled) { border-color: #fe2c55; color: #fe2c55; }
+  .transcribe-regen-btn:disabled { opacity: 0.4; cursor: default; }
+  .transcribe-textarea.generating { background: #f5f5f7; color: #bbb; pointer-events: none; }
+  .transcribe-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .transcribe-col-label { font-size: 11px; font-weight: 700; color: #999; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+  .transcribe-original { font-size: 13px; line-height: 1.8; color: #555; background: #f5f5f7; border-radius: 10px; padding: 12px 14px; min-height: 160px; }
+  .transcribe-textarea { width: 100%; border: 1px solid #e5e5e5; border-radius: 10px; padding: 12px 14px; font-size: 13px; font-family: inherit; color: #1d1d1f; background: #fafafa; resize: vertical; min-height: 160px; line-height: 1.8; outline: none; transition: border-color 0.15s; }
+  .transcribe-textarea:focus { border-color: #fe2c55; background: #fff; }
+  .transcribe-col-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 6px; font-size: 12px; color: #bbb; }
+  .transcribe-save-btn { padding: 4px 14px; border-radius: 20px; border: none; background: #1d1d1f; color: #fff; font-size: 12px; font-weight: 600; cursor: pointer; opacity: 0; pointer-events: none; transition: opacity 0.2s, background 0.2s; }
+  .transcribe-save-btn.dirty { opacity: 1; pointer-events: auto; }
+  .transcribe-save-btn.saved { background: #34c759; }
+
+  /* 图片生成控制 */
+  .img-gen-bar { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+  .img-gen-count { font-size: 13px; color: #1d1d1f; font-weight: 600; }
+  .img-gen-batch { font-size: 12px; color: #999; }
+  .img-gen-btn { padding: 7px 18px; border-radius: 20px; border: none; background: #fe2c55; color: #fff; font-size: 13px; font-weight: 600; cursor: pointer; transition: opacity 0.15s; white-space: nowrap; }
+  .img-gen-btn:hover { opacity: 0.88; }
+  .img-gen-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+  .img-gen-btn.generating { background: #bbb; }
+  .img-clear-btn { font-size: 12px; color: #bbb; background: none; border: none; cursor: pointer; padding: 0; text-decoration: underline; }
+  .img-clear-btn:hover { color: #999; }
+  .img-empty-hint { text-align: center; padding: 48px 0; color: #bbb; font-size: 13px; line-height: 2; }
+
+  /* 图片池：网格模式 */
+  .image-pool { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
+
+  .img-pool-item { position: relative; aspect-ratio: 9/16; border-radius: 10px; overflow: hidden; cursor: pointer; border: 3px solid transparent; transition: border-color 0.15s, transform 0.15s; }
+  .img-pool-item:hover { transform: scale(1.03); border-color: #ffd6de; }
+  .img-pool-item.selected { border-color: #34c759; }
+  .img-pool-item.selected:hover { border-color: #28a745; }
+  .img-pool-face { width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 6px; }
+  .img-num { font-size: 11px; font-weight: 700; color: rgba(255,255,255,0.9); }
+  .img-label { font-size: 9px; color: rgba(255,255,255,0.7); text-align: center; }
+  .img-check-badge { position: absolute; top: 5px; right: 5px; width: 20px; height: 20px; background: #34c759; border-radius: 50%; display: none; align-items: center; justify-content: center; color: #fff; font-size: 11px; font-weight: 700; }
+  .img-day-badge { position: absolute; bottom: 5px; left: 5px; background: rgba(0,0,0,0.55); color: #fff; font-size: 10px; font-weight: 600; padding: 2px 6px; border-radius: 8px; display: none; }
+  .img-pool-item.selected .img-check-badge { display: flex; }
+  .img-pool-item.selected .img-day-badge { display: block; }
+  @keyframes imgFadeIn { from { opacity:0; transform:scale(0.92); } to { opacity:1; transform:scale(1); } }
+  .img-pool-item.new-batch { animation: imgFadeIn 0.35s ease both; }
+  .img-new-badge { position: absolute; top: 5px; left: 5px; background: #fe2c55; color: #fff; font-size: 9px; font-weight: 700; padding: 2px 6px; border-radius: 8px; }
+
+  /* 右侧计划槽（两步共用） */
+  .plan-panel { position: sticky; top: 76px; height: fit-content; }
+  .plan-header { font-size: 14px; font-weight: 700; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; }
+  .plan-count-badge { font-size: 12px; background: #f5f5f7; color: #666; padding: 3px 10px; border-radius: 20px; font-weight: 500; }
+  .plan-slots { display: flex; flex-direction: column; gap: 8px; }
+  .plan-slot { background: #fff; border-radius: 12px; padding: 10px 12px; min-height: 56px; display: flex; align-items: center; gap: 10px; border: 2px dashed #e5e5e5; transition: all 0.2s; }
+  .plan-slot.filled { border-style: solid; border-color: #34c759; }
+  .plan-slot-day { font-size: 12px; font-weight: 700; color: #fe2c55; width: 28px; flex-shrink: 0; }
+  .plan-slot-content { flex: 1; min-width: 0; }
+  .plan-slot-empty { font-size: 12px; color: #bbb; }
+  .plan-slot-title { font-size: 12px; font-weight: 600; line-height: 1.3; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+  .plan-slot-sub { font-size: 11px; color: #999; margin-top: 2px; }
+  .plan-slot-thumb { width: 28px; height: 38px; border-radius: 5px; flex-shrink: 0; }
+  .plan-slot-actions { display: flex; gap: 4px; flex-shrink: 0; }
+  .slot-btn { width: 22px; height: 22px; border-radius: 5px; border: 1px solid #e5e5e5; background: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 11px; transition: background 0.15s; }
+  .slot-btn:hover { background: #f5f5f7; }
+  .slot-btn.remove:hover { background: #fff0f3; border-color: #ffd6de; color: #fe2c55; }
+  .plan-tip { font-size: 12px; color: #999; text-align: center; margin-top: 10px; line-height: 1.5; }
+
+  /* 步骤四：视频 */
+  .main { max-width: 1000px; margin: 0 auto; padding: 28px 24px 80px; }
+
+  /* 模型选择栏 */
+  .vid-config-bar { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+  .vid-card-model-group { display: flex; border: 1.5px solid #e5e5e5; border-radius: 18px; overflow: hidden; flex-shrink: 0; }
+  .vid-card-model-btn { padding: 4px 13px; border: none; background: #fff; font-size: 12px; font-weight: 600; color: #888; cursor: pointer; transition: all 0.15s; }
+  .vid-card-model-btn.active { background: #1d1d1f; color: #fff; }
+  .vid-card-model-btn:disabled { opacity: 0.4; cursor: default; }
+  .vid-model-label { font-size: 12px; color: #999; }
+  .vid-gen-all-btn { margin-left: auto; padding: 8px 20px; border-radius: 20px; border: none; background: #fe2c55; color: #fff; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap; transition: opacity 0.15s; }
+  .vid-gen-all-btn:hover { opacity: 0.88; }
+  .vid-gen-all-btn:disabled { opacity: 0.4; cursor: not-allowed; background: #bbb; }
+
+  /* 视频卡状态 */
+  .vid-status-badge { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 20px; margin-left: auto; }
+  .s-idle       { background: #f5f5f7; color: #aaa; }
+  .s-generating { background: #fff8e6; color: #e09600; }
+  .s-success    { background: #e8faf0; color: #34c759; }
+  .s-failed     { background: #fff0f3; color: #fe2c55; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .vid-spinner-sm { width: 10px; height: 10px; border: 2px solid currentColor; border-top-color: transparent; border-radius: 50%; animation: spin 0.8s linear infinite; display: inline-block; }
+  .vid-body-generating { display: flex; flex-direction: column; align-items: center; padding: 44px 0; gap: 14px; }
+  .vid-spinner-lg { width: 38px; height: 38px; border: 3px solid #e09600; border-top-color: transparent; border-radius: 50%; animation: spin 1s linear infinite; }
+  .vid-body-generating p { font-size: 13px; color: #999; margin: 0; }
+  .vid-body-generating small { font-size: 12px; color: #bbb; }
+  .vid-body-failed { display: flex; flex-direction: column; align-items: center; padding: 36px 0; gap: 12px; }
+  .vid-failed-msg { font-size: 13px; color: #fe2c55; }
+  .vid-retry-btn { padding: 7px 20px; border-radius: 20px; border: 1.5px solid #fe2c55; background: #fff; color: #fe2c55; font-size: 13px; font-weight: 600; cursor: pointer; transition: background 0.15s; }
+  .vid-retry-btn:hover { background: #fff0f3; }
+  .vid-body-idle { display: flex; align-items: center; justify-content: center; padding: 44px 0; color: #ccc; font-size: 13px; background: #fafafa; border-radius: 10px; }
+  .vid-card-regen-btn { padding: 4px 12px; border-radius: 14px; border: 1.5px solid #d1d1d6; background: #fff; color: #555; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.15s; white-space: nowrap; }
+  .vid-card-regen-btn:hover { border-color: #c7253e; color: #c7253e; background: #fff5f5; }
+  .vid-card-regen-btn:disabled { opacity: 0.35; cursor: default; pointer-events: none; }
+  .vid-id-row { display: flex; align-items: center; gap: 6px; margin-bottom: 12px; }
+  .vid-id-chip { font-family: 'SF Mono', 'Menlo', monospace; font-size: 11px; color: #888; background: #f2f2f7; border: 1px solid #e5e5e5; border-radius: 6px; padding: 3px 8px; letter-spacing: 0.5px; user-select: all; }
+  .vid-id-copy-btn { padding: 3px 9px; border-radius: 10px; border: 1px solid #d1d1d6; background: #fff; color: #666; font-size: 11px; cursor: pointer; transition: all 0.15s; }
+  .vid-id-copy-btn:hover { border-color: #888; color: #1d1d1f; }
+
+  /* 视频播放器 */
+  .video-wrapper { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; }
+  .video-player { background: #000; border-radius: 12px; overflow: hidden; aspect-ratio: 9/16; display: flex; align-items: center; justify-content: center; color: #fff; }
+  .video-info h4 { font-size: 15px; font-weight: 600; margin-bottom: 8px; }
+  .video-info p { font-size: 13px; color: #666; margin-bottom: 16px; line-height: 1.6; }
+  .video-check { display: flex; align-items: center; gap: 10px; padding: 13px 15px; background: #f5f5f7; border-radius: 10px; cursor: pointer; transition: background 0.15s; }
+  .video-check:hover { background: #ebebed; }
+  .video-check.checked { background: #e8faf0; }
+  .video-check input[type="checkbox"] { width: 17px; height: 17px; cursor: pointer; accent-color: #34c759; }
+  .video-check label { font-size: 14px; cursor: pointer; }
+
+  /* 步骤五：文案 */
+  .content-grid { display: grid; grid-template-columns: 180px 1fr; gap: 20px; align-items: start; }
+  .cover-area { display: flex; flex-direction: column; gap: 8px; }
+  .cover-preview { aspect-ratio: 3/4; border-radius: 10px; overflow: hidden; position: relative; }
+  .cover-placeholder { width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; padding: 14px; font-size: 12px; color: #fff; font-weight: 600; text-align: center; line-height: 1.4; }
+  .cover-loading-overlay { position: absolute; inset: 0; background: rgba(255,255,255,0.72); display: flex; align-items: center; justify-content: center; border-radius: 10px; font-size: 12px; color: #888; gap: 6px; }
+  .cover-regen-btn { width: 100%; padding: 7px; border-radius: 8px; border: 1.5px solid #d1d1d6; background: #fff; color: #555; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.15s; }
+  .cover-regen-btn:hover:not(:disabled) { border-color: #c7253e; color: #c7253e; }
+  .cover-regen-btn:disabled { opacity: 0.45; cursor: default; }
+  .fields { display: flex; flex-direction: column; gap: 13px; }
+  .field label { display: block; font-size: 11px; font-weight: 700; color: #999; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .field-input-wrap { position: relative; }
+  .field-input-wrap input, .field-input-wrap textarea { padding-right: 34px; }
+  .field-input-regen { position: absolute; right: 7px; top: 8px; width: 22px; height: 22px; border: none; background: none; cursor: pointer; color: #c0c0c0; display: flex; align-items: center; justify-content: center; border-radius: 6px; padding: 0; transition: color 0.15s, background 0.15s; }
+  .field-input-regen:hover:not(:disabled) { color: #fe2c55; background: #fff0f3; }
+  .field-input-regen:disabled { cursor: default; }
+  .field-input-regen svg { display: block; transition: transform 0.3s; }
+  @keyframes regen-spin { to { transform: rotate(360deg); } }
+  .field-input-regen.spinning svg { animation: regen-spin 0.8s linear infinite; color: #fe2c55; }
+  .field input, .field textarea { width: 100%; border: 1px solid #e5e5e5; border-radius: 8px; padding: 9px 11px; font-size: 13px; font-family: inherit; color: #1d1d1f; background: #fafafa; transition: border-color 0.15s; resize: none; }
+  .field input:focus, .field textarea:focus { outline: none; border-color: #fe2c55; background: #fff; }
+  .field textarea { min-height: 76px; line-height: 1.6; }
+  .field-seo-input { margin-top: 8px; }
+  .tags-row { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 5px; }
+  .tag { background: #fff0f3; color: #fe2c55; font-size: 11px; padding: 3px 9px; border-radius: 20px; border: 1px solid #ffd6de; }
+
+  /* ── 底部操作栏 ── */
+  .action-bar { position: fixed; bottom: 0; left: 0; right: 0; background: rgba(255,255,255,0.95); backdrop-filter: blur(12px); border-top: 1px solid #e5e5e5; padding: 14px 40px; display: flex; align-items: center; justify-content: space-between; z-index: 50; }
+  .progress-text { font-size: 14px; color: #666; }
+  .btn-group { display: flex; gap: 10px; }
+  .btn { padding: 9px 22px; border-radius: 20px; border: none; font-size: 14px; font-weight: 600; cursor: pointer; transition: opacity 0.2s, transform 0.1s; }
+  .btn:active { transform: scale(0.97); }
+  .btn-secondary { background: #f5f5f7; color: #1d1d1f; }
+  .btn-secondary:hover { background: #ebebed; }
+  .btn-primary { background: #fe2c55; color: #fff; }
+  .btn-primary:hover { opacity: 0.9; }
+  .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* ── 完成页 ── */
+  .done-screen { text-align: center; padding: 80px 20px; }
+  .done-screen .icon { font-size: 60px; margin-bottom: 18px; }
+  .done-screen h2 { font-size: 26px; font-weight: 700; margin-bottom: 8px; }
+  .done-screen p { font-size: 15px; color: #666; margin-bottom: 28px; }
+  .schedule-summary { background: #fff; border-radius: 14px; padding: 20px; max-width: 480px; margin: 0 auto 28px; text-align: left; }
+  .schedule-item { display: flex; justify-content: space-between; align-items: center; padding: 11px 0; border-bottom: 1px solid #f0f0f0; font-size: 13px; }
+  .schedule-item:last-child { border-bottom: none; }
+  .schedule-item .day-name { font-weight: 600; }
+  .schedule-item .pub-time { color: #666; font-size: 12px; }
+
+  /* ── 大图灯箱 ── */
+  .lightbox-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.78); z-index: 9999; display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none; transition: opacity 0.2s; }
+  .lightbox-overlay.open { opacity: 1; pointer-events: auto; }
+  .lightbox-wrap { position: relative; width: min(360px, 88vw); transform: scale(0.92); transition: transform 0.2s; }
+  .lightbox-overlay.open .lightbox-wrap { transform: scale(1); }
+  .lightbox-box { width: 100%; border-radius: 16px; overflow: hidden; box-shadow: 0 24px 80px rgba(0,0,0,0.5); }
+  .lightbox-inner { width: 100%; aspect-ratio: 3/4; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; padding: 24px 20px; font-size: 18px; font-weight: 700; color: #fff; text-align: center; line-height: 1.5; }
+  .lightbox-close { position: absolute; top: -22px; right: -22px; width: 32px; height: 32px; border-radius: 50%; background: rgba(255,255,255,0.22); border: none; cursor: pointer; color: #fff; display: flex; align-items: center; justify-content: center; transition: background 0.15s; }
+  .lightbox-close:hover { background: rgba(255,255,255,0.38); }
+  .lightbox-label { position: absolute; bottom: 0; left: 0; right: 0; padding: 10px 14px; background: rgba(0,0,0,0.45); font-size: 12px; color: rgba(255,255,255,0.8); text-align: center; }
+  /* 步骤三底图放大按钮 */
+  .img-zoom-btn { position: absolute; top: 6px; right: 6px; width: 26px; height: 26px; border-radius: 50%; background: rgba(0,0,0,0.42); border: none; cursor: pointer; color: #fff; display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.15s, background 0.15s; z-index: 2; }
+  .img-pool-item:hover .img-zoom-btn { opacity: 1; }
+  .img-zoom-btn:hover { background: rgba(0,0,0,0.65); }
+  /* 步骤五封面可点击 */
+  .cover-preview { cursor: pointer; }
+  .cover-preview:hover::after { content: ''; position: absolute; inset: 0; background: rgba(0,0,0,0.15); border-radius: 10px; pointer-events: none; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div style="display:flex;align-items:center;gap:16px">
+    <a href="dashboard.html" style="display:flex;align-items:center;gap:6px;font-size:13px;color:#666;text-decoration:none;padding:6px 12px;border-radius:8px;transition:background 0.15s" onmouseover="this.style.background='#f5f5f7'" onmouseout="this.style.background='transparent'">← 返回首页</a>
+    <div class="topbar-title">📋 本周内容批量确认</div>
+  </div>
+  <div class="steps">
+    <div class="step active" id="nav-step1" onclick="goToStep(1)"><div class="step-num">1</div><div class="step-label">选对标内容</div></div>
+    <div class="step-divider"></div>
+    <div class="step" id="nav-step2" onclick="goToStep(2)"><div class="step-num">2</div><div class="step-label">转写检查</div></div>
+    <div class="step-divider"></div>
+    <div class="step" id="nav-step3" onclick="goToStep(3)"><div class="step-num">3</div><div class="step-label">选底图</div></div>
+    <div class="step-divider"></div>
+    <div class="step" id="nav-step4" onclick="goToStep(4)"><div class="step-num">4</div><div class="step-label">检查视频</div></div>
+    <div class="step-divider"></div>
+    <div class="step" id="nav-step5" onclick="goToStep(5)"><div class="step-num">5</div><div class="step-label">确认文案</div></div>
+    <div class="step-divider"></div>
+    <div class="step" id="nav-step6" onclick="goToStep(6)"><div class="step-num">✓</div><div class="step-label">完成</div></div>
+  </div>
+</div>
+
+<!-- ══ 步骤一：选对标内容 ══ -->
+<div class="section active" id="section1">
+  <div class="dual-layout">
+    <div class="pool-panel">
+      <div class="section-header">
+        <h2>从上周抓取内容中选择本周7篇</h2>
+        <p>共抓取上周10个账号内容，点击「加入计划」分配到本周某天。</p>
+      </div>
+      <div class="pool-toolbar">
+        <input type="text" id="search-input" placeholder="搜索标题关键词..." oninput="filterContentPool()">
+        <select class="sort-select" onchange="sortContentPool(this.value)">
+          <option value="total">推荐值</option>
+          <option value="date">最新</option>
+          <option value="duration">时长</option>
+          <option value="likes">点赞</option>
+          <option value="comments">评论</option>
+          <option value="saves">收藏</option>
+        </select>
+      </div>
+      <div class="pool-toolbar" id="account-filters" style="margin-top:-4px"></div>
+      <div class="pool-count" id="content-pool-count"></div>
+      <div class="content-pool" id="content-pool"></div>
+    </div>
+    <div class="plan-panel">
+      <div class="plan-header">本周发布计划 <span class="plan-count-badge" id="content-plan-badge">0 / 7</span></div>
+      <div class="plan-slots" id="content-plan-slots"></div>
+      <div class="plan-tip">点击左侧内容加入计划<br>↑↓ 调整天序，✕ 移除重选</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ 步骤二：转写内容检查 ══ -->
+<div class="section" id="section2">
+  <div class="main">
+    <div class="section-header"><h2>转写内容检查</h2><p>左侧为对标原文，右侧为 AI 按提示词转写后的文案，可直接编辑。</p></div>
+    <div class="prompt-panel">
+      <div class="prompt-panel-header">
+        <div class="prompt-panel-title">转写提示词</div>
+        <div class="prompt-panel-actions" id="prompt-transcribe-collapsed">
+          <button class="prompt-toggle-btn" onclick="togglePrompt('transcribe')">展开编辑</button>
+          <button class="prompt-regen-btn" id="regen-transcribe-btn" onclick="regenTranscriptions(this)">全部重新生成</button>
+        </div>
+        <div class="prompt-panel-actions" id="prompt-transcribe-editing" style="display:none">
+          <button class="prompt-toggle-btn" onclick="cancelPrompt('transcribe')">取消</button>
+          <button class="prompt-save-btn dirty" onclick="savePrompt('transcribe', this)">保存</button>
+        </div>
+      </div>
+      <div class="prompt-preview" id="prompt-transcribe-preview" onclick="togglePrompt('transcribe')"></div>
+      <div class="prompt-body" id="prompt-transcribe-body">
+        <textarea class="prompt-textarea" id="prompt-transcribe-textarea"></textarea>
+        <div class="prompt-hint">修改提示词后点击「保存」，保存后重新进入本步骤时将使用新提示词生成转写文案。</div>
+      </div>
+    </div>
+    <div class="transcribe-list" id="transcribe-cards"></div>
+  </div>
+</div>
+
+<!-- ══ 步骤三：选底图 ══ -->
+<div class="section" id="section3">
+  <div style="max-width:1200px;margin:0 auto;padding:24px 24px 0">
+    <div class="prompt-panel">
+      <div class="prompt-panel-header">
+        <div class="prompt-panel-title">底图生成提示词</div>
+        <div class="prompt-panel-actions" id="prompt-image-collapsed">
+          <button class="prompt-toggle-btn" onclick="togglePrompt('image')">展开编辑</button>
+        </div>
+        <div class="prompt-panel-actions" id="prompt-image-editing" style="display:none">
+          <button class="prompt-toggle-btn" onclick="cancelPrompt('image')">取消</button>
+          <button class="prompt-save-btn dirty" onclick="savePrompt('image', this)">保存</button>
+        </div>
+      </div>
+      <div class="prompt-preview" id="prompt-image-preview" onclick="togglePrompt('image')"></div>
+      <div class="prompt-body" id="prompt-image-body">
+        <textarea class="prompt-textarea" id="prompt-image-textarea"></textarea>
+        <div class="prompt-hint">修改提示词后点击「保存」，保存后重新生成底图时将使用新提示词。</div>
+      </div>
+    </div>
+  </div>
+  <div class="dual-layout" style="padding-top:16px">
+    <div class="pool-panel">
+      <div class="section-header">
+        <h2>生成底图并选择本周7张</h2>
+        <p>每次调用接口返回4张，可多次生成积累图库，再从中挑选7张。</p>
+      </div>
+      <div class="img-gen-bar">
+        <span class="img-gen-count" id="img-gen-count">已生成 0 张</span>
+        <span class="img-gen-batch" id="img-gen-batch"></span>
+        <button class="img-gen-btn" id="img-gen-btn" onclick="generateImageBatch(this)">生成4张底图</button>
+      </div>
+      <div id="img-empty-hint" class="img-empty-hint">点击「生成4张底图」开始生成<br>可多次生成积累图库，再挑选7张</div>
+      <div class="image-pool" id="image-pool"></div>
+    </div>
+    <div class="plan-panel">
+      <div class="plan-header">本周底图计划 <span class="plan-count-badge" id="image-plan-badge">0 / 7</span></div>
+      <div class="plan-slots" id="image-plan-slots"></div>
+      <div class="plan-tip">点击左侧底图加入计划<br>↑↓ 调整天序，✕ 移除重选</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ 步骤四：检查视频 ══ -->
+<div class="section" id="section4">
+  <div class="main">
+    <div class="section-header"><h2>生成并检查数字人视频</h2><p>选择模型后生成，逐个播放确认效果后勾选。</p></div>
+
+    <!-- 两个提示词面板并排 -->
+    <div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+      <div class="prompt-panel" style="flex:1;min-width:260px">
+        <div class="prompt-panel-header">
+          <div class="prompt-panel-title">视频提示词 · 5B 模型</div>
+          <div class="prompt-panel-actions" id="prompt-video5b-collapsed">
+            <button class="prompt-toggle-btn" onclick="togglePrompt('video5b')">展开编辑</button>
+          </div>
+          <div class="prompt-panel-actions" id="prompt-video5b-editing" style="display:none">
+            <button class="prompt-toggle-btn" onclick="cancelPrompt('video5b')">取消</button>
+            <button class="prompt-save-btn dirty" onclick="savePrompt('video5b', this)">保存</button>
+          </div>
+        </div>
+        <div class="prompt-preview" id="prompt-video5b-preview" onclick="togglePrompt('video5b')"></div>
+        <div class="prompt-body" id="prompt-video5b-body">
+          <textarea class="prompt-textarea" id="prompt-video5b-textarea"></textarea>
+        </div>
+      </div>
+      <div class="prompt-panel" style="flex:1;min-width:260px">
+        <div class="prompt-panel-header">
+          <div class="prompt-panel-title">视频提示词 · 14B 模型</div>
+          <div class="prompt-panel-actions" id="prompt-video14b-collapsed">
+            <button class="prompt-toggle-btn" onclick="togglePrompt('video14b')">展开编辑</button>
+          </div>
+          <div class="prompt-panel-actions" id="prompt-video14b-editing" style="display:none">
+            <button class="prompt-toggle-btn" onclick="cancelPrompt('video14b')">取消</button>
+            <button class="prompt-save-btn dirty" onclick="savePrompt('video14b', this)">保存</button>
+          </div>
+        </div>
+        <div class="prompt-preview" id="prompt-video14b-preview" onclick="togglePrompt('video14b')"></div>
+        <div class="prompt-body" id="prompt-video14b-body">
+          <textarea class="prompt-textarea" id="prompt-video14b-textarea"></textarea>
+        </div>
+      </div>
+    </div>
+
+    <!-- 全局生成按钮 -->
+    <div class="vid-config-bar">
+      <button class="vid-gen-all-btn" id="vid-gen-all-btn" onclick="generateAllVideos()">生成视频</button>
+    </div>
+
+    <div id="video-cards"></div>
+  </div>
+</div>
+
+<!-- ══ 步骤五：确认文案 ══ -->
+<div class="section" id="section5">
+  <div class="main">
+    <div class="section-header"><h2>确认文案与发布计划</h2><p>AI 根据提示词生成标题、封面、文案，可直接编辑或逐条重新生成。</p></div>
+
+    <!-- 三个提示词面板 -->
+    <div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+      <div class="prompt-panel" style="flex:1;min-width:220px">
+        <div class="prompt-panel-header">
+          <div class="prompt-panel-title">标题生成提示词</div>
+          <div class="prompt-panel-actions" id="prompt-title-collapsed">
+            <button class="prompt-toggle-btn" onclick="togglePrompt('title')">展开编辑</button>
+          </div>
+          <div class="prompt-panel-actions" id="prompt-title-editing" style="display:none">
+            <button class="prompt-toggle-btn" onclick="cancelPrompt('title')">取消</button>
+            <button class="prompt-save-btn dirty" onclick="savePrompt('title', this)">保存</button>
+          </div>
+        </div>
+        <div class="prompt-preview" id="prompt-title-preview" onclick="togglePrompt('title')"></div>
+        <div class="prompt-body" id="prompt-title-body">
+          <textarea class="prompt-textarea" id="prompt-title-textarea"></textarea>
+        </div>
+      </div>
+      <div class="prompt-panel" style="flex:1;min-width:220px">
+        <div class="prompt-panel-header">
+          <div class="prompt-panel-title">封面生成提示词</div>
+          <div class="prompt-panel-actions" id="prompt-cover-collapsed">
+            <button class="prompt-toggle-btn" onclick="togglePrompt('cover')">展开编辑</button>
+          </div>
+          <div class="prompt-panel-actions" id="prompt-cover-editing" style="display:none">
+            <button class="prompt-toggle-btn" onclick="cancelPrompt('cover')">取消</button>
+            <button class="prompt-save-btn dirty" onclick="savePrompt('cover', this)">保存</button>
+          </div>
+        </div>
+        <div class="prompt-preview" id="prompt-cover-preview" onclick="togglePrompt('cover')"></div>
+        <div class="prompt-body" id="prompt-cover-body">
+          <textarea class="prompt-textarea" id="prompt-cover-textarea"></textarea>
+        </div>
+      </div>
+      <div class="prompt-panel" style="flex:1;min-width:220px">
+        <div class="prompt-panel-header">
+          <div class="prompt-panel-title">文案 & SEO 提示词</div>
+          <div class="prompt-panel-actions" id="prompt-copy-collapsed">
+            <button class="prompt-toggle-btn" onclick="togglePrompt('copy')">展开编辑</button>
+          </div>
+          <div class="prompt-panel-actions" id="prompt-copy-editing" style="display:none">
+            <button class="prompt-toggle-btn" onclick="cancelPrompt('copy')">取消</button>
+            <button class="prompt-save-btn dirty" onclick="savePrompt('copy', this)">保存</button>
+          </div>
+        </div>
+        <div class="prompt-preview" id="prompt-copy-preview" onclick="togglePrompt('copy')"></div>
+        <div class="prompt-body" id="prompt-copy-body">
+          <textarea class="prompt-textarea" id="prompt-copy-textarea"></textarea>
+        </div>
+      </div>
+    </div>
+
+    <div id="content-cards"></div>
+  </div>
+</div>
+
+<!-- ══ 完成 ══ -->
+<div class="section" id="section6">
+  <div class="main">
+    <div class="done-screen">
+      <div class="icon">🎉</div>
+      <h2>本周内容已全部确认</h2>
+      <p>调度器将按以下时间自动发布</p>
+      <div class="schedule-summary" id="schedule-summary"></div>
+      <button class="btn btn-primary" onclick="exportJSON()">导出发布计划 JSON</button>
+    </div>
+  </div>
+</div>
+
+<div class="action-bar">
+  <div class="progress-text" id="progress-text">从左侧选择7篇内容加入本周计划</div>
+  <div class="btn-group">
+    <button class="btn btn-secondary" id="btn-back" onclick="prevStep()" style="display:none">← 上一步</button>
+    <button class="btn btn-primary" id="btn-next" onclick="nextStep()" disabled>下一步 →</button>
+  </div>
+</div>
+
+<script>
+// ══ 数据 ══
+const ACCOUNTS = [
+  { id:1, name:"心理学博士张晓", color:"#fe2c55" },
+  { id:2, name:"温柔力量研究所", color:"#ff8c69" },
+  { id:3, name:"她说心理",       color:"#a78bfa" },
+  { id:4, name:"日子向阳生长",   color:"#34c759" },
+  { id:5, name:"成长型女性社区", color:"#0071e3" },
+];
+
+const CONTENT_RAW = [
+  { id:1,  acc:1, title:"为什么越努力的人越焦虑？心理学给出答案",   likes:8420, comments:312, saves:2100, duration:"1:48", heat:96, persona:88, date:"05-05",
+    script:"你有没有发现，越是拼命努力的人，反而越容易焦虑？这听起来很矛盾，但心理学里有一个词叫「过度补偿」。当我们对自己的现状感到不安，就会用不断努力来填补内心的空洞。但问题是，这种努力不是从热爱出发，而是从恐惧出发。恐惧自己不够好，恐惧被别人超过，恐惧停下来就会失去一切。所以哪怕已经很累了，还是停不下来。真正的解法不是更努力，而是先问自己：我在为谁而努力？如果答案是「为了证明自己」，那焦虑只会越来越深。" },
+  { id:2,  acc:1, title:"情绪价值才是亲密关系的核心货币",           likes:5200, comments:198, saves:1600, duration:"1:55", heat:85, persona:90, date:"05-06",
+    script:"很多人谈恋爱，谈的是条件：学历、收入、身高、颜值。但真正让一段关系走得长久的，是情绪价值。什么叫情绪价值？就是当你在ta身边，你感到被看见、被接纳、被珍视。你说的话有人认真听，你的难过有人真的在乎，你的快乐有人真心为你高兴。这种感受，是任何物质都替代不了的。所以选伴侣，不只是看ta能给你什么，更要看ta让你感受到什么。一个让你经常感到委屈、紧绷、需要小心翼翼的人，无论条件多好，都很难走远。" },
+  { id:3,  acc:1, title:"高敏感人群如何找到自己的节奏",             likes:4100, comments:154, saves:1300, duration:"2:02", heat:79, persona:91, date:"05-07",
+    script:"如果你经常觉得自己太敏感了，一件小事就能影响你一整天，别人一句无心的话让你想很久——你可能是一个高敏感人。高敏感不是缺陷，心理学研究显示大约20%的人天生具有更深度的信息处理能力。但高敏感的人也更容易被外界信息淹没，所以找到自己的节奏特别重要。第一，给自己留足「独处时间」来恢复能量。第二，减少无效社交，选择让你感到舒适的人相处。第三，学会识别哪些是真实的威胁，哪些只是大脑在过度解读。你不需要变得不敏感，只需要学会和自己的敏感做朋友。" },
+  { id:4,  acc:2, title:"学会这3句话，你的情绪会稳很多",            likes:6230, comments:198, saves:3400, duration:"1:52", heat:89, persona:92, date:"05-04",
+    script:"今天分享3句话，真的很管用。第一句：「我现在有情绪，这很正常。」很多人情绪一来，第一反应是压制它，觉得自己不应该有这种感受。但其实，允许情绪存在，才是管理情绪的第一步。第二句：「这件事五年后还重要吗？」很多让我们抓狂的事，放在时间长河里根本不值一提。这句话能帮你快速拉开距离感。第三句：「我能控制的是我的反应，不是别人的行为。」当你接受了这个事实，你就不会再把精力浪费在改变别人上了。" },
+  { id:5,  acc:2, title:"允许自己软弱，才是真正的强大",             likes:3800, comments:142, saves:1900, duration:"1:44", heat:77, persona:93, date:"05-06",
+    script:"我们从小被教导要坚强，要撑住，不能轻易倒下。但很少有人告诉我们，允许自己软弱，其实需要更大的勇气。软弱意味着你承认了自己的极限。你说「我最近很累」而不是「我没事」。你说「我需要帮助」而不是独自硬撑。这种诚实，对自己和对别人，都需要力量。真正强大的人，不是从不崩溃的人，而是崩溃之后还能重新站起来的人。所以今天如果你感到很难，请允许自己难。这不是软弱，这是你在好好爱自己。" },
+  { id:6,  acc:2, title:"那些内心安静的人，都做对了什么",           likes:7100, comments:267, saves:2800, duration:"1:50", heat:91, persona:94, date:"05-07",
+    script:"你有没有羡慕过那种内心很安静的人？无论外界多嘈杂，她都好像有一个稳定的内核，不容易被带着走。这种内心的安静不是天生的，是练出来的。她们通常有几个共同点：第一，她们不跟每一个人解释自己。她们知道，真正理解你的人不需要解释，不理解你的人解释了也没用。第二，她们学会了和「不确定性」共存。不是所有问题都需要马上有答案，焦虑大多来自我们对未知的抗拒。第三，她们有自己的精神滋养来源。一本书、一段音乐、一个人，能让她们回到自己。内心的安静，是你给自己最好的礼物。" },
+  { id:7,  acc:3, title:"内耗的根源，不是你想太多",                 likes:12800,comments:541, saves:5200, duration:"2:01", heat:98, persona:90, date:"05-03",
+    script:"很多人以为内耗是因为想太多。其实不是。内耗的根源，是你内心有两个声音在打架，而且打了很久，谁也赢不了谁。一个声音说「你应该去做」，另一个声音说「你做不好的」。一个声音说「你值得被爱」，另一个声音说「你哪里值得」。这种内在的冲突，才是真正耗尽你能量的东西。所以解决内耗，不是让自己「别想了」，而是去弄清楚：这两个声音，哪一个才是真正的你？另一个，是谁的声音？很多时候你会发现，那个否定你的声音，其实是从别人那里内化来的。认出它，才能慢慢放下它。" },
+  { id:8,  acc:3, title:"为什么有些人永远不缺乏安全感",             likes:9200, comments:388, saves:4100, duration:"1:57", heat:94, persona:87, date:"05-05",
+    script:"安全感这件事，一直以来都被误解了。很多人以为安全感来自稳定的关系、稳定的收入、稳定的生活。但你去观察那些真正有安全感的人，你会发现一件有意思的事：她们的生活不一定比你稳定，但她们相信自己有能力应对变化。这就是安全感的真相——它不是来自外部环境的稳定，而是来自你对自己的信任。「就算事情不顺，我也能想到办法。」「就算有人离开，我也不会失去自己。」这种对自己的底气，才是安全感真正的来源。而这种底气，是一点一点积累出来的。" },
+  { id:9,  acc:3, title:"停止讨好，从这一刻开始",                   likes:7600, comments:310, saves:3300, duration:"1:49", heat:92, persona:89, date:"05-07",
+    script:"讨好型人格有一个很大的误区：以为只要自己足够好，足够配合，别人就会喜欢自己。但现实往往相反。你越是无条件满足别人，别人越不会珍惜你。因为人天生对「容易得到的」不太在乎。停止讨好，不是让你变得冷漠自私，而是开始诚实。诚实地表达你的需要：「这件事我做不到。」诚实地设定你的边界：「这样对我不尊重，我需要你改变。」刚开始这样做会很难，甚至会害怕失去一些人。但你会发现，真正留下来的人，才是真的喜欢你这个人，而不只是喜欢你的顺从。" },
+  { id:10, acc:4, title:"哄自己开心，是一种高级能力",               likes:4100, comments:287, saves:1890, duration:"1:44", heat:82, persona:95, date:"05-04",
+    script:"我发现，很多人不太会哄自己开心。心情不好的时候，要么硬撑着，要么等别人来哄。但有一种人不一样，她们知道怎么照顾自己的情绪：今天很累了，就去买一杯喜欢的咖啡；今天有点伤心，就打开一部老电影，允许自己哭一场；今天觉得无聊，就去做一件之前一直想做但没做的小事。这不是在逃避，这是在主动管理自己的状态。当你学会了哄自己开心，你对别人的依赖就少了很多，内心也会踏实很多。哄自己开心，是对自己最温柔的负责。" },
+  { id:11, acc:4, title:"你有没有认真爱过自己？",                   likes:5500, comments:231, saves:2400, duration:"1:51", heat:87, persona:96, date:"05-06",
+    script:"问你一个问题：你上一次认真对自己好，是什么时候？不是因为要奖励自己完成了什么，不是因为犒劳一下辛苦的自己——就只是，单纯地因为「我值得」，而对自己好。很多人把爱自己挂在嘴边，但生活里，对自己最苛刻的往往也是自己。嫌自己不够瘦，嫌自己不够努力，嫌自己不够聪明。但你对朋友会这样吗？如果一个你在乎的人正在经历你正在经历的事，你会怎么跟她说话？用那种方式，跟自己说话。这才是爱自己的开始。" },
+  { id:12, acc:4, title:"生活中那些细小的治愈瞬间",                 likes:3200, comments:176, saves:1600, duration:"1:40", heat:74, persona:92, date:"05-07",
+    script:"最近在收集生活里那些小小的治愈瞬间。早上窗帘透进来的第一缕光。泡了很久的脚终于放松下来的感觉。和一个很久没联系的朋友突然聊起来，发现彼此都还好。买到了一直想要但一直舍不得的东西。把房间收拾整洁之后坐在那里发呆。这些小事，没有什么大道理，但它们真实地存在于生活里，像小小的锚，让你在漂着的时候能落回来。我们不需要等待一个「一切都好」的未来才开始感受幸福，幸福就藏在这些细碎的瞬间里。" },
+  { id:13, acc:5, title:"真正的自律，是对自己温柔",                 likes:5500, comments:176, saves:2700, duration:"1:50", heat:86, persona:93, date:"05-04",
+    script:"很多人理解的自律是：严格、克制、不能放松，稍微懈怠一下就要自我惩罚。但这种自律很难长久，因为它是建立在恐惧上的。真正持久的自律，其实更接近一种「对自己的温柔」。你知道什么对你好，所以你去做——不是因为你必须，而是因为你想照顾好自己。你今天没能做到，不是因为你太差劲，而是因为今天确实有点难，明天再来。这种与自己的关系，才能走得远。严苛的自律会让你精疲力竭，温柔的自律会让你越来越有力量。" },
+  { id:14, acc:5, title:"不要把努力当成惩罚自己的方式",             likes:4800, comments:201, saves:2200, duration:"1:55", heat:83, persona:91, date:"05-05",
+    script:"你有没有发现，有些人的努力看起来很沉重？好像在用拼命工作来赎什么罪，或者证明什么。这种努力是一种惩罚——惩罚自己过去的不够好，惩罚自己现在的不够多。但努力本来不是这样的。努力应该是从好奇出发，从热爱出发，是因为你想看到某件事发生，所以你去做。如果你发现自己在用「忙碌」来逃避某些东西，在用「努力」来麻痹某种不安，那不妨停下来问问自己：我到底在追什么？是我真正想要的，还是我以为我应该要的？" },
+  { id:15, acc:5, title:"慢下来，才能走得更远",                     likes:3900, comments:158, saves:1800, duration:"1:46", heat:78, persona:90, date:"05-07",
+    script:"这个时代告诉我们要快：快速成长，快速变现，快速达到目标。但有一个悖论是，很多真正走得远的人，都有意识地在某些时候让自己慢下来。慢下来不是懒，是让自己有时间思考：我现在做的事，是我真正想做的吗？这个方向，真的是我要去的吗？高速运转的时候，你很难看清这些。就像一辆车开得太快，转弯就会失控。慢下来，是为了看清路，也是为了看清自己。然后再出发，走得更稳，也更远。" },
+  { id:16, acc:1, title:"一个人的情绪稳定，值多少钱",               likes:6800, comments:289, saves:2900, duration:"1:53", heat:90, persona:88, date:"05-08",
+    script:"有人问我，情绪稳定真的那么重要吗？我说，你算一算就知道了。因为情绪失控跟朋友吵架，修复关系花了多少时间和精力？因为焦虑睡不着觉，第二天效率低下，错过了多少机会？因为情绪化做了冲动决定，付出了多少代价？情绪稳定不是没有情绪，而是你的情绪不会控制你的行为。你可以愤怒，但你不会在愤怒时做出伤害自己和别人的事。你可以难过，但你不会在难过时觉得世界末日。这种能力，在人际关系里，在职场里，在生活的每一个角落，都在悄悄起作用。" },
+  { id:17, acc:3, title:"心理学：为什么你总是选错人",               likes:10200,comments:445, saves:4600, duration:"2:03", heat:96, persona:85, date:"05-08",
+    script:"心理学里有一个概念叫「强迫性重复」。就是说，我们会在亲密关系里，不断重复童年时期熟悉的相处模式——哪怕那种模式让我们很痛苦。如果你小时候总是要努力表现才能得到父母的认可，长大后你可能会不自觉地被那种「需要你证明自己」的伴侣吸引。如果你小时候生活在一个情绪不稳定的家庭，你可能会觉得「平静的关系」反而让你不安，觉得缺点什么。所以不是你选人的眼光差，而是你还没有意识到自己在重复什么。意识到这件事，是做出改变的第一步。" },
+  { id:18, acc:4, title:"周末一个人独处，我都在做这件事",           likes:5100, comments:224, saves:2500, duration:"1:58", heat:85, persona:94, date:"05-08",
+    script:"分享一下我的周末独处routine。早上不设闹钟，自然醒之后先不看手机，就是发一会儿呆，让大脑慢慢苏醒。然后泡一杯茶或者咖啡，坐在窗边，随便翻一本书，不一定要认真看，就是让自己在文字里漂一会儿。下午如果天气好，会出去走走，没有目的地那种，就是随便逛。晚上可能会做一顿简单但认真的饭，然后看一部老电影，或者写一点日记。没有什么特别的，但这些时间会让我感觉，我在认真地活着，而不是被日程表推着走。你的独处时间，是用来做什么的？" },
+];
+CONTENT_RAW.forEach(item => { item.total = Math.round(item.heat*0.4 + item.persona*0.6); });
+
+// 底图数据（按批次动态追加，初始为空）
+const IMG_STYLES = [
+  { style:"暖色", colors:[["#ffd6a5","#ffb347"],["#ffadad","#ff7b7b"],["#ffc6ff","#ff8aff"],["#fdffb6","#f5e642"],["#ffe5b4","#ffaa44"]] },
+  { style:"冷色", colors:[["#a0c4ff","#6fa3e8"],["#bde0fe","#80c4fd"],["#9bf6ff","#52ecff"],["#caffbf","#96e07e"],["#c9e4ff","#7ab8f5"]] },
+  { style:"中性", colors:[["#c9a0dc","#9b6bb5"],["#ddd6f3","#faaca8"],["#e8d5c4","#c9a882"],["#d4e09b","#a8c55f"],["#b8dbd9","#7fb8b5"]] },
+];
+let IMAGES = [];
+let imgIdCounter = 1;
+let imgBatchCount = 0;
+
+const DAYS = [
+  { day:"周一", date:"2026-05-11" },
+  { day:"周二", date:"2026-05-12" },
+  { day:"周三", date:"2026-05-13" },
+  { day:"周四", date:"2026-05-14" },
+  { day:"周五", date:"2026-05-15" },
+  { day:"周六", date:"2026-05-16" },
+  { day:"周日", date:"2026-05-17" },
+];
+
+// ══ 状态 ══
+let contentPool = [...CONTENT_RAW];
+let contentPlan = Array(7).fill(null);
+let imagePlan   = Array(7).fill(null);
+let videoChecks = {};
+let contents = DAYS.map(d => ({ title:"", description:"", seo:"#心理学 #情绪管理 #高知女性 #自我成长 #心灵成长", coverUrl:"", publishTime:`${d.date}T10:00` }));
+let activeAccFilter = 0;
+
+const fmt = n => n >= 10000 ? (n/10000).toFixed(1)+"万" : n.toLocaleString();
+
+// ══ 步骤一：内容池 ══
+function renderAccountFilters() {
+  const btns = [
+    `<button class="filter-btn ${activeAccFilter===0?"active":""}" onclick="setAccFilter(0)">全部</button>`,
+    ...ACCOUNTS.map(a => `<button class="filter-btn ${activeAccFilter===a.id?"active":""}" onclick="setAccFilter(${a.id})">${a.name}</button>`)
+  ].join("");
+  document.getElementById("account-filters").innerHTML = btns;
+}
+
+function setAccFilter(id) { activeAccFilter = id; renderAccountFilters(); filterContentPool(); }
+
+function filterContentPool() {
+  const q = document.getElementById("search-input").value.toLowerCase();
+  const filtered = contentPool.filter(item =>
+    (activeAccFilter===0 || item.acc===activeAccFilter) && (!q || item.title.toLowerCase().includes(q))
+  );
+  renderContentPool(filtered);
+}
+
+function parseDuration(s) { const [m,sec] = s.split(':').map(Number); return m*60+sec; }
+function sortContentPool(key) {
+  const map = {
+    total:    (a,b) => b.total - a.total,
+    date:     (a,b) => b.id - a.id,
+    duration: (a,b) => parseDuration(a.duration) - parseDuration(b.duration),
+    likes:    (a,b) => b.likes - a.likes,
+    comments: (a,b) => b.comments - a.comments,
+    saves:    (a,b) => b.saves - a.saves,
+  };
+  contentPool.sort(map[key]);
+  filterContentPool();
+}
+
+function toggleScript(id) {
+  const item = document.querySelector(`.pool-item[data-id="${id}"]`);
+  const scriptDiv = item.querySelector(".pool-script");
+  const btn = item.querySelector(".pool-expand-btn");
+  const isOpen = scriptDiv.classList.contains("open");
+  scriptDiv.classList.toggle("open", !isOpen);
+  btn.classList.toggle("open", !isOpen);
+  btn.textContent = isOpen ? "展开文字" : "收起";
+}
+
+function renderContentPool(items) {
+  const inPlanIds = new Set(contentPlan.filter(Boolean).map(p=>p.id));
+  const planFull = contentPlan.filter(Boolean).length >= 7;
+  document.getElementById("content-pool-count").textContent = `共 ${items.length} 条内容`;
+  document.getElementById("content-pool").innerHTML = items.map(item => {
+    const acc = ACCOUNTS.find(a=>a.id===item.acc);
+    const inPlan = inPlanIds.has(item.id);
+    const scriptText = item.script || "";
+    return `
+    <div class="pool-item ${inPlan?"in-plan":""}" data-id="${item.id}">
+      <div class="pool-thumb" style="background:linear-gradient(160deg,${acc.color}88,${acc.color}33)">
+        <span>${item.date}</span>
+      </div>
+      <div class="pool-body">
+        <div class="pool-account">
+          <div class="pool-avatar" style="background:${acc.color}">${acc.name[0]}</div>
+          <span class="pool-account-name">${acc.name}</span>
+        </div>
+        <div class="pool-title">${item.title}</div>
+        <div class="pool-meta">
+          <span>❤️ ${fmt(item.likes)}</span>
+          <span>💬 ${fmt(item.comments)}</span>
+          <span>⭐ ${fmt(item.saves)}</span>
+          <span>⏱ ${item.duration}</span>
+        </div>
+        <div class="pool-scores">
+          <span class="score-pill s-total">推荐值 ${item.total}</span>
+        </div>
+        <div class="pool-script">
+          <div class="pool-script-header">
+            <span class="pool-script-label">文字稿</span>
+            <span class="pool-script-count">${scriptText.length} 字</span>
+          </div>
+          <div class="pool-script-text">${scriptText}</div>
+        </div>
+      </div>
+      <div class="pool-item-actions">
+        <button class="pool-expand-btn" onclick="toggleScript(${item.id})">展开文字</button>
+        <button class="pool-add-btn ${inPlan?"added":""}" ${inPlan||planFull?"disabled":""}
+          onclick="${inPlan?"":"addContentToPlan("+item.id+")"}">
+          ${inPlan?"✓ 已加入":"+ 加入计划"}
+        </button>
+      </div>
+    </div>`;
+  }).join("");
+}
+
+function addContentToPlan(id) {
+  const item = CONTENT_RAW.find(p=>p.id===id);
+  const idx = contentPlan.findIndex(p=>p===null);
+  if (idx===-1) return;
+  contentPlan[idx] = item;
+  syncContentPlan();
+  filterContentPool();
+  renderContentPlanSlots();
+}
+
+function removeContentFromPlan(i) {
+  contentPlan[i] = null;
+  syncContentPlan();
+  filterContentPool();
+  renderContentPlanSlots();
+}
+
+function moveContentPlan(i, dir) {
+  const t = i+dir;
+  if (t<0||t>6) return;
+  [contentPlan[i],contentPlan[t]] = [contentPlan[t],contentPlan[i]];
+  renderContentPlanSlots();
+  syncContentPlan();
+}
+
+function syncContentPlan() {
+  const done = contentPlan.filter(Boolean).length;
+  document.getElementById("content-plan-badge").textContent = `${done} / 7`;
+  document.getElementById("progress-text").textContent = `已选 ${done} / 7 篇内容`;
+  document.getElementById("btn-next").disabled = done < 7;
+  debouncedSave();
+}
+
+function renderContentPlanSlots() {
+  document.getElementById("content-plan-slots").innerHTML = DAYS.map((day,i) => {
+    const item = contentPlan[i];
+    const acc = item ? ACCOUNTS.find(a=>a.id===item.acc) : null;
+    return `
+    <div class="plan-slot ${item?"filled":""}">
+      <div class="plan-slot-day">${day.day}</div>
+      <div class="plan-slot-content">
+        ${item
+          ? `<div class="plan-slot-title">${item.title}</div><div class="plan-slot-sub">${acc.name}</div>`
+          : `<div class="plan-slot-empty">点击左侧内容加入</div>`}
+      </div>
+      ${item ? `<div class="plan-slot-actions">
+        <button class="slot-btn" onclick="moveContentPlan(${i},-1)" ${i===0?"disabled":""}>↑</button>
+        <button class="slot-btn" onclick="moveContentPlan(${i},1)"  ${i===6?"disabled":""}>↓</button>
+        <button class="slot-btn remove" onclick="removeContentFromPlan(${i})">✕</button>
+      </div>` : ""}
+    </div>`;
+  }).join("");
+}
+
+// ══ 步骤二：转写内容检查 ══
+let transcriptions = Array(7).fill("");
+let transcribeStatuses = Array(7).fill('idle'); // 'idle' | 'generating'
+
+// ── 通用提示词组件 ──
+const PROMPT_DEFAULTS = {
+  transcribe: `你是一个心理学高知女性博主的内容助手，风格温婉优雅、治愈系。
+
+请根据以下对标视频的原文，改写成符合我们账号风格的口播文案：
+- 口吻：真诚、平和、有力量感，像朋友倾诉，不说教
+- 时长：约2分钟，字数控制在300-400字
+- 结构：开头有共鸣钩子 → 展开核心观点 → 结尾有互动引导
+- 保留原文的核心心理学洞察，替换成更贴近我们人设的表达方式
+- 避免照搬原文词句，保持创意改写`,
+
+  image: `你是一个专业数字人形象设计师，负责为心理学高知女性博主生成背景底图。
+
+图片风格要求：
+- 整体调性：温婉优雅、治愈系，符合高知女性气质
+- 色调：以暖色系（米白、藕粉、浅金）或冷色系（雾蓝、薄荷绿）为主，避免高饱和度
+- 构图：简洁留白，突出人物，背景不抢镜
+- 场景参考：书房、咖啡馆、自然光窗边、植物角落、简约书架
+- 人物着装：知性风，偏向纯色或细腻图案，避免过于时髦或休闲
+- 分辨率：9:16 竖版，适配小红书展示`
+};
+
+PROMPT_DEFAULTS.title = `你是一个小红书运营助手，账号定位为心理学高知女性博主。
+请根据以下口播文案，生成1个小红书标题：
+- 20字以内，有悬念感或情感共鸣
+- 避免夸张标题党，风格温婉有力
+- 适合心理学/成长/情绪方向`;
+
+PROMPT_DEFAULTS.cover = `将标题文字合成到底图上，生成封面图：
+- 文字居中偏下，留出人物展示空间
+- 字体：白色加粗，配半透明深色阴影以保证可读性
+- 字号适中，一眼清晰
+- 整体风格与底图调性统一，温婉优雅`;
+
+PROMPT_DEFAULTS.copy = `你是一个小红书运营助手，账号定位为心理学高知女性博主。
+请根据以下口播文案，生成：
+1. 详情文案（200-300字）：引发读者情感共鸣，口吻温婉真诚，结尾自然引导互动
+2. SEO标签（3-5个，以#开头）：契合心理学/成长/情绪方向，选择流量大的标签`;
+
+const currentPrompts = { transcribe: PROMPT_DEFAULTS.transcribe, image: PROMPT_DEFAULTS.image, title: PROMPT_DEFAULTS.title, cover: PROMPT_DEFAULTS.cover, copy: PROMPT_DEFAULTS.copy };
+
+function initPrompt(key) {
+  const ta = document.getElementById(`prompt-${key}-textarea`);
+  const preview = document.getElementById(`prompt-${key}-preview`);
+  if (ta) ta.value = currentPrompts[key];
+  if (preview) preview.textContent = currentPrompts[key].substring(0, 80) + "…";
+  // 确保初始为收起态
+  document.getElementById(`prompt-${key}-body`).classList.remove("open");
+  document.getElementById(`prompt-${key}-preview`).style.display = "block";
+  document.getElementById(`prompt-${key}-collapsed`).style.display = "flex";
+  document.getElementById(`prompt-${key}-editing`).style.display = "none";
+}
+
+function togglePrompt(key) {
+  document.getElementById(`prompt-${key}-textarea`).value = currentPrompts[key];
+  document.getElementById(`prompt-${key}-body`).classList.add("open");
+  document.getElementById(`prompt-${key}-preview`).style.display = "none";
+  document.getElementById(`prompt-${key}-collapsed`).style.display = "none";
+  document.getElementById(`prompt-${key}-editing`).style.display = "flex";
+}
+
+function cancelPrompt(key) {
+  document.getElementById(`prompt-${key}-body`).classList.remove("open");
+  document.getElementById(`prompt-${key}-preview`).style.display = "block";
+  document.getElementById(`prompt-${key}-collapsed`).style.display = "flex";
+  document.getElementById(`prompt-${key}-editing`).style.display = "none";
+}
+
+function savePrompt(key, btn) {
+  currentPrompts[key] = document.getElementById(`prompt-${key}-textarea`).value;
+  document.getElementById(`prompt-${key}-preview`).textContent = currentPrompts[key].substring(0, 80) + "…";
+  btn.classList.add("saved");
+  btn.textContent = "已保存 ✓";
+  setTimeout(() => { btn.classList.remove("saved"); btn.textContent = "保存"; cancelPrompt(key); }, 1000);
+}
+
+function regenTranscription(di) {
+  transcribeStatuses[di] = 'generating';
+  renderTranscribeCard(di);
+  // TODO: POST /api/transcribe 单条，传入 currentPrompts.transcribe + contentPlan[di].script
+  //       response.transcribed → transcriptions[di] = response.transcribed
+  setTimeout(() => {
+    transcribeStatuses[di] = 'idle';
+    renderTranscribeCard(di);
+    debouncedSave();
+  }, 2000);
+}
+
+function regenTranscriptions(btn) {
+  btn.disabled = true;
+  btn.classList.add("generating");
+  btn.textContent = "生成中…";
+  DAYS.forEach((_,di) => { if (contentPlan[di]) regenTranscription(di); });
+  setTimeout(() => {
+    btn.disabled = false;
+    btn.classList.remove("generating");
+    btn.textContent = "全部重新生成";
+  }, 2200);
+}
+
+
+function renderTranscribeCards() {
+  transcriptions = contentPlan.map((item, di) => transcriptions[di] || (item ? item.script || "" : ""));
+  document.getElementById("transcribe-cards").innerHTML = DAYS.map((day, di) => {
+    const item = contentPlan[di];
+    if (!item) return "";
+    return `<div id="tcards-${di}"></div>`;
+  }).join("");
+  DAYS.forEach((_,di) => { if (contentPlan[di]) renderTranscribeCard(di); });
+}
+
+function renderTranscribeCard(di) {
+  const day = DAYS[di];
+  const item = contentPlan[di];
+  if (!item) return;
+  const original = item.script || "";
+  const transcribed = transcriptions[di];
+  const isGenerating = transcribeStatuses[di] === 'generating';
+  document.getElementById(`tcards-${di}`).outerHTML = `
+  <div class="transcribe-card" id="tcards-${di}">
+    <div class="transcribe-card-header">
+      <span class="day-tag">${day.day}</span>
+      <span class="transcribe-card-title">${item.title}</span>
+      <button class="transcribe-regen-btn" id="trans-regen-${di}"
+        ${isGenerating ? 'disabled' : ''} onclick="regenTranscription(${di})">
+        ${isGenerating ? '生成中…' : '重新生成'}
+      </button>
+    </div>
+    <div class="transcribe-cols">
+      <div>
+        <div class="transcribe-col-label">对标原文</div>
+        <div class="transcribe-original">${original}</div>
+        <div class="transcribe-col-footer">${original.length} 字</div>
+      </div>
+      <div>
+        <div class="transcribe-col-label">转写文案（可编辑）</div>
+        <textarea class="transcribe-textarea${isGenerating?' generating':''}" id="trans-${di}"
+          ${isGenerating ? 'disabled' : ''}
+          oninput="onTranscribeInput(${di}, this)">${transcribed}</textarea>
+        <div class="transcribe-col-footer">
+          <span id="trans-count-${di}">${transcribed.length} 字</span>
+          <button class="transcribe-save-btn" id="trans-save-${di}" onclick="saveTranscription(${di}, this)">保存</button>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function onTranscribeInput(di, el) {
+  document.getElementById(`trans-count-${di}`).textContent = el.value.length + " 字";
+  const btn = document.getElementById(`trans-save-${di}`);
+  btn.classList.add("dirty");
+  btn.classList.remove("saved");
+  btn.textContent = "保存";
+}
+
+function saveTranscription(di, btn) {
+  transcriptions[di] = document.getElementById(`trans-${di}`).value;
+  btn.classList.remove("dirty");
+  btn.classList.add("saved");
+  btn.textContent = "已保存 ✓";
+  setTimeout(() => { btn.classList.remove("saved"); btn.textContent = "保存"; }, 1500);
+}
+
+// ══ 步骤三：图片池 ══
+function generateImageBatch(btn) {
+  btn.disabled = true;
+  btn.classList.add("generating");
+  btn.textContent = "生成中…";
+  // TODO: 调用 AI 接口，传入 currentPrompts.image，返回4张图
+  setTimeout(() => {
+    imgBatchCount++;
+    const stylePool = IMG_STYLES[imgBatchCount % 3];
+    const colorPool = stylePool.colors;
+    const newBatch = [0,1,2,3].map(k => {
+      const c = colorPool[(imgIdCounter + k) % colorPool.length];
+      return { id: imgIdCounter++, style: stylePool.style, c1: c[0], c2: c[1],
+               label: `第${imgBatchCount}批 ${k+1}号`, batchId: imgBatchCount };
+    });
+    IMAGES.unshift(...newBatch);
+    updateImageGenBar();
+    filterImagePool(newBatch.map(i=>i.id));
+    btn.disabled = false;
+    btn.classList.remove("generating");
+    btn.textContent = "再生成4张";
+  }, 1500);
+}
+
+function updateImageGenBar() {
+  document.getElementById("img-gen-count").textContent = `已生成 ${IMAGES.length} 张`;
+  document.getElementById("img-gen-batch").textContent = imgBatchCount > 0 ? `· 共 ${imgBatchCount} 批` : "";
+  document.getElementById("img-empty-hint").style.display = IMAGES.length > 0 ? "none" : "block";
+}
+
+
+function filterImagePool(newBatchIds) {
+  renderImagePool(IMAGES, newBatchIds || []);
+}
+
+function renderImagePool(items, highlightIds=[]) {
+  const inPlanIds = new Set(imagePlan.filter(Boolean).map(p=>p.id));
+  const planFull = imagePlan.filter(Boolean).length >= 7;
+  const pool = document.getElementById("image-pool");
+  pool.innerHTML = items.map((img, idx) => {
+    const inPlan = inPlanIds.has(img.id);
+    const slotIdx = imagePlan.findIndex(p=>p&&p.id===img.id);
+    const dayLabel = slotIdx>=0 ? DAYS[slotIdx].day : "";
+    const isNew = highlightIds.includes(img.id);
+    const delay = isNew ? `animation-delay:${highlightIds.indexOf(img.id)*0.07}s` : "";
+    const lbBg = `linear-gradient(160deg,${img.c1},${img.c2})`;
+    return `
+    <div class="img-pool-item ${inPlan?"selected":""} ${isNew?"new-batch":""}" id="img-pool-${img.id}"
+      style="${delay}" onclick="${inPlan?"removeImageFromPlanById("+img.id+")":planFull?"":"addImageToPlan("+img.id+")"}">
+      <div class="img-pool-face" style="background:${lbBg}">
+        <div class="img-num">#${img.id}</div>
+        <div class="img-label">${img.label}</div>
+      </div>
+      ${isNew ? `<div class="img-new-badge">NEW</div>` : ""}
+      <div class="img-check-badge">✓</div>
+      <div class="img-day-badge">${dayLabel}</div>
+      <button class="img-zoom-btn" title="查看大图"
+        onclick="event.stopPropagation();openLightbox('${lbBg}','','','9/16')">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      </button>
+    </div>`;
+  }).join("");
+}
+
+function addImageToPlan(id) {
+  const img = IMAGES.find(p=>p.id===id);
+  const idx = imagePlan.findIndex(p=>p===null);
+  if (idx===-1) return;
+  imagePlan[idx] = img;
+  syncImagePlan();
+  filterImagePool([]);
+  renderImagePlanSlots();
+}
+
+function removeImageFromPlanById(id) {
+  const i = imagePlan.findIndex(p=>p&&p.id===id);
+  if (i !== -1) removeImageFromPlan(i);
+}
+function removeImageFromPlan(i) {
+  imagePlan[i] = null;
+  syncImagePlan();
+  filterImagePool([]);
+  renderImagePlanSlots();
+}
+
+function moveImagePlan(i, dir) {
+  const t = i+dir;
+  if (t<0||t>6) return;
+  [imagePlan[i],imagePlan[t]] = [imagePlan[t],imagePlan[i]];
+  renderImagePlanSlots();
+  filterImagePool([]);
+  syncImagePlan();
+}
+
+function syncImagePlan() {
+  const done = imagePlan.filter(Boolean).length;
+  document.getElementById("image-plan-badge").textContent = `${done} / 7`;
+  document.getElementById("progress-text").textContent = `已选 ${done} / 7 张底图`;
+  document.getElementById("btn-next").disabled = done < 7;
+  debouncedSave();
+}
+
+function renderImagePlanSlots() {
+  document.getElementById("image-plan-slots").innerHTML = DAYS.map((day,i) => {
+    const img = imagePlan[i];
+    return `
+    <div class="plan-slot ${img?"filled":""}">
+      <div class="plan-slot-day">${day.day}</div>
+      ${img ? `<div class="plan-slot-thumb" style="background:linear-gradient(160deg,${img.c1},${img.c2})"></div>` : ""}
+      <div class="plan-slot-content">
+        ${img
+          ? `<div class="plan-slot-title">${img.label}</div><div class="plan-slot-sub">${img.style}系</div>`
+          : `<div class="plan-slot-empty">点击左侧底图加入</div>`}
+      </div>
+      ${img ? `<div class="plan-slot-actions">
+        <button class="slot-btn" onclick="moveImagePlan(${i},-1)" ${i===0?"disabled":""}>↑</button>
+        <button class="slot-btn" onclick="moveImagePlan(${i},1)"  ${i===6?"disabled":""}>↓</button>
+        <button class="slot-btn remove" onclick="removeImageFromPlan(${i})">✕</button>
+      </div>` : ""}
+    </div>`;
+  }).join("");
+}
+
+// ══ 步骤四：视频 ══
+let videoModels = {};      // di → '5B' | '14B'
+let videoUsedModels = {}; // di → model actually used when generation started
+let videoIds = {};         // di → 'VID-YYYYMMDD-NNN'
+let vidIdCounter = 0;
+let videoStatuses = {}; // di → 'idle' | 'generating' | 'success' | 'failed'
+
+PROMPT_DEFAULTS.video5b  = `一个女人在说话，表情生动，优雅得体，符合知性气质，不要有手部动作，双手自然静止摆放。`;
+PROMPT_DEFAULTS.video14b = `一个女人在说话，表情生动，肢体动作丰富，优雅得体，符合知性气质。`;
+
+currentPrompts.video5b  = PROMPT_DEFAULTS.video5b;
+currentPrompts.video14b = PROMPT_DEFAULTS.video14b;
+
+function initVideoSection() {
+  DAYS.forEach((_,di) => {
+    if (!videoStatuses[di]) videoStatuses[di] = 'idle';
+    if (!videoModels[di]) videoModels[di] = '14B';
+    if (!videoIds[di]) videoIds[di] = generateVidId();
+  });
+  initPrompt('video5b');
+  initPrompt('video14b');
+  renderVideoCards();
+  updateVideoProgress();
+}
+
+function switchCardModel(di, model) {
+  if (videoStatuses[di] === 'generating') return;
+  videoModels[di] = model;
+  renderVideoCard(di);
+  debouncedSave();
+}
+
+function generateAllVideos() {
+  const btn = document.getElementById('vid-gen-all-btn');
+  btn.disabled = true;
+  btn.textContent = '生成中…';
+  DAYS.forEach((_,di) => {
+    if (videoStatuses[di] !== 'success') triggerVideoGeneration(di);
+  });
+}
+
+function generateVidId() {
+  const d = new Date();
+  const date = `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
+  vidIdCounter++;
+  return `VID-${date}-${String(vidIdCounter).padStart(3,'0')}`;
+}
+
+function copyVidId(di, btn) {
+  const id = videoIds[di];
+  if (!id) return;
+  navigator.clipboard.writeText(id).catch(() => {
+    const ta = document.createElement('textarea');
+    ta.value = id; document.body.appendChild(ta); ta.select();
+    document.execCommand('copy'); document.body.removeChild(ta);
+  });
+  if (btn) { btn.textContent = '已复制 ✓'; setTimeout(() => { btn.textContent = '复制 ID'; }, 1500); }
+}
+
+function triggerVideoGeneration(di) {
+  const model = videoModels[di] || '14B';
+  videoUsedModels[di] = model;
+  if (!videoIds[di]) videoIds[di] = generateVidId();
+  videoStatuses[di] = 'generating';
+  renderVideoCard(di);
+  updateVideoProgress();
+  // TODO: 调用 AI 接口，传入 model + currentPrompts[`video${model.toLowerCase()}`] + transcriptions[di]
+  const delay = 1500 + Math.random() * 2500;
+  setTimeout(() => {
+    videoStatuses[di] = Math.random() > 0.25 ? 'success' : 'failed';
+    renderVideoCard(di);
+    updateVideoProgress();
+  }, delay);
+}
+
+function retryVideo(di) {
+  triggerVideoGeneration(di);
+}
+
+function renderVideoCards() {
+  document.getElementById("video-cards").innerHTML = DAYS.map((_,di) => `<div id="vid-card-${di}"></div>`).join("");
+  DAYS.forEach((_,di) => renderVideoCard(di));
+}
+
+function renderVideoCard(di) {
+  const day  = DAYS[di];
+  const st   = videoStatuses[di] || 'idle';
+  const cardModel = videoModels[di] || '14B';
+  const usedModel = videoUsedModels[di] || cardModel;
+  const title = contentPlan[di]?.title || "";
+  const statusLabels = { idle:'等待生成', generating:'生成中', success:'生成成功', failed:'生成失败' };
+  const statusClasses = { idle:'s-idle', generating:'s-generating', success:'s-success', failed:'s-failed' };
+  const spinnerHtml = st==='generating' ? `<span class="vid-spinner-sm"></span>` : '';
+  const modelDisabled = st === 'generating' ? 'disabled' : '';
+  const modelToggle = `<div class="vid-card-model-group">
+    <button class="vid-card-model-btn ${cardModel==='5B'?'active':''}" ${modelDisabled} onclick="switchCardModel(${di},'5B')">5B</button>
+    <button class="vid-card-model-btn ${cardModel==='14B'?'active':''}" ${modelDisabled} onclick="switchCardModel(${di},'14B')">14B</button>
+  </div>`;
+  let bodyHtml;
+  if (st === 'idle') {
+    bodyHtml = `<div class="vid-body-idle">等待生成…</div>`;
+  } else if (st === 'generating') {
+    bodyHtml = `<div class="vid-body-generating">
+      <div class="vid-spinner-lg"></div>
+      <p>生成中 · 预计约30分钟</p>
+      <small>使用 ${usedModel} 模型</small>
+    </div>`;
+  } else if (st === 'success') {
+    const checked = videoChecks[di] || false;
+    bodyHtml = `<div class="video-wrapper">
+      <div class="video-player"><div style="text-align:center"><div style="font-size:32px;margin-bottom:8px">▶</div><div style="font-size:11px;opacity:0.5">${day.day} · 约2分钟</div></div></div>
+      <div class="video-info">
+        <h4>${title}</h4>
+        <p style="margin-bottom:8px">使用 <strong>${usedModel}</strong> 模型生成。请检查：口型是否自然、字幕有无错别字、背景是否干净。</p>
+        <div class="video-check ${checked?'checked':''}" id="vcheck-${di}" onclick="toggleVideoCheck(${di})">
+          <input type="checkbox" id="vcb-${di}" ${checked?'checked':''}>
+          <label for="vcb-${di}">已检查视频效果，确认通过</label>
+        </div>
+      </div>
+    </div>`;
+  } else {
+    bodyHtml = `<div class="vid-body-failed">
+      <div class="vid-failed-msg">生成失败（${usedModel} 模型），请重新生成</div>
+    </div>`;
+  }
+  const regenBtn = st !== 'generating'
+    ? `<button class="vid-card-regen-btn" onclick="retryVideo(${di})">${st==='idle'?'生成':'重新生成'}</button>`
+    : '';
+  const vid = videoIds[di];
+  const vidIdRow = vid ? `<div class="vid-id-row">
+    <span style="font-size:11px;color:#aaa">视频 ID</span>
+    <span class="vid-id-chip">${vid}</span>
+    <button class="vid-id-copy-btn" onclick="copyVidId(${di}, this)">复制 ID</button>
+  </div>` : '';
+  document.getElementById(`vid-card-${di}`).outerHTML = `
+  <div class="day-card ${st==='success'&&videoChecks[di]?'complete':''}" id="vid-card-${di}">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+      <span class="day-tag">${day.day}</span>
+      <span style="font-size:13px;color:#666;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${title}</span>
+      ${modelToggle}
+      <span class="vid-status-badge ${statusClasses[st]}">${spinnerHtml}${statusLabels[st]}</span>
+      ${st==='success'?'<span class="complete-badge">✓ 已确认</span>':""}
+      ${regenBtn}
+    </div>
+    ${vidIdRow}
+    ${bodyHtml}
+  </div>`;
+}
+
+function toggleVideoCheck(di) {
+  videoChecks[di] = !videoChecks[di];
+  renderVideoCard(di);
+  updateVideoProgress();
+}
+
+function updateVideoProgress() {
+  const successCount  = Object.values(videoStatuses).filter(s=>s==='success').length;
+  const confirmedCount = Object.values(videoChecks).filter(Boolean).length;
+  const allDone = !Object.values(videoStatuses).some(s=>s==='generating');
+  const genBtn = document.getElementById('vid-gen-all-btn');
+  if (genBtn) {
+    const allIdle     = Object.values(videoStatuses).every(s=>s==='idle');
+    const hasFailures = Object.values(videoStatuses).some(s=>s==='failed');
+    const hasPending  = Object.values(videoStatuses).some(s=>s==='idle');
+    if (!allDone) {
+      genBtn.disabled = true;
+      genBtn.textContent = '生成中…';
+    } else if (allIdle) {
+      genBtn.disabled = false;
+      genBtn.textContent = '生成视频';
+    } else if (hasFailures || hasPending) {
+      genBtn.disabled = false;
+      genBtn.textContent = '重新生成未完成项';
+    } else {
+      genBtn.disabled = true;
+      genBtn.textContent = '全部完成';
+    }
+  }
+  document.getElementById("progress-text").textContent =
+    `已生成 ${successCount}/7 · 已确认 ${confirmedCount}/7`;
+  document.getElementById("btn-next").disabled = confirmedCount < 7;
+  debouncedSave();
+}
+
+// ══ 步骤五：文案 ══
+let coverStatuses = {};  // di → 'idle' | 'generating'
+let titleStatuses = Array(7).fill('idle'); // di → 'idle' | 'generating'
+let copyStatuses  = Array(7).fill('idle'); // di → 'idle' | 'generating'（同时控制文案+SEO）
+
+function initContentSection() {
+  contentPlan.forEach((item,di) => { if(item) contents[di].title = item.title; });
+  DAYS.forEach((_,di) => { if (!coverStatuses[di]) coverStatuses[di] = 'idle'; });
+  initPrompt('title');
+  initPrompt('cover');
+  initPrompt('copy');
+  renderContentCards();
+}
+
+function renderContentCards() {
+  document.getElementById("content-cards").innerHTML =
+    DAYS.map((_,di) => `<div id="content-card-${di}"></div>`).join("");
+  DAYS.forEach((_,di) => renderContentCard(di));
+}
+
+function renderContentCard(di) {
+  const day = DAYS[di];
+  const c = contents[di];
+  const img = imagePlan[di];
+  const bg = img ? `linear-gradient(160deg,${img.c1},${img.c2})` : "linear-gradient(160deg,#c9a0dc,#9b6bb5)";
+  const isGeneratingCover = coverStatuses[di] === 'generating';
+  const isGeneratingTitle = titleStatuses[di] === 'generating';
+  const isGeneratingCopy  = copyStatuses[di]  === 'generating';
+  const coverOverlay = isGeneratingCover
+    ? `<div class="cover-loading-overlay"><span class="vid-spinner-sm"></span> 生成中…</div>` : '';
+  const tags = (c.seo||'').split(' ').filter(Boolean).map(t=>`<span class="tag">${t}</span>`).join('');
+  const escapedBg5 = bg.replace(/'/g,"\\'");
+  const escapedTitle5 = (c.title||'').replace(/'/g,"&#39;").replace(/"/g,"&quot;");
+  document.getElementById(`content-card-${di}`).outerHTML = `
+  <div class="day-card complete" id="content-card-${di}">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap">
+      <span class="day-tag">${day.day} · ${day.date}</span>
+      <span style="flex:1"></span>
+      ${videoIds[di] ? `<span style="font-size:11px;color:#aaa">视频 ID</span><span class="vid-id-chip">${videoIds[di]}</span><button class="vid-id-copy-btn" onclick="copyVidId(${di}, this)">复制 ID</button>` : ''}
+    </div>
+    <div class="content-grid">
+      <div class="cover-area">
+        <div class="cover-preview" ${isGeneratingCover?'style="cursor:default"':`onclick="openLightbox('${escapedBg5}','${escapedTitle5}','')" title="点击查看大图"`}>
+          <div class="cover-placeholder" style="background:${bg}">
+            <div id="cover-text-${di}">${c.title}</div>
+          </div>
+          ${coverOverlay}
+        </div>
+        <button class="cover-regen-btn" ${isGeneratingCover?'disabled':''} onclick="regenCover(${di})">
+          ${isGeneratingCover ? '生成中…' : '重新生成封面'}
+        </button>
+      </div>
+      <div class="fields">
+        <div class="field"><label>标题（20字以内）</label>
+          <div class="field-input-wrap">
+            <input type="text" value="${c.title}" maxlength="20"
+              oninput="contents[${di}].title=this.value;document.getElementById('cover-text-${di}').textContent=this.value">
+            <button class="field-input-regen ${isGeneratingTitle?'spinning':''}" title="重新生成标题"
+              ${isGeneratingTitle?'disabled':''} onclick="regenTitle(${di})">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="field"><label>详情文案</label>
+          <div class="field-input-wrap">
+            <textarea oninput="contents[${di}].description=this.value">${c.description||''}</textarea>
+            <button class="field-input-regen ${isGeneratingCopy?'spinning':''}" title="重新生成文案"
+              ${isGeneratingCopy?'disabled':''} onclick="regenCopy(${di})">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="field"><label>SEO 标签</label>
+          <div class="field-input-wrap">
+            <input type="text" placeholder="#心理学 #情绪管理 #自我成长" value="${c.seo}"
+              oninput="contents[${di}].seo=this.value;document.getElementById('tags-${di}').innerHTML=this.value.split(' ').filter(Boolean).map(t=>'<span class=\\'tag\\'>'+t+'</span>').join('')">
+            <button class="field-input-regen ${isGeneratingCopy?'spinning':''}" title="重新生成SEO标签"
+              ${isGeneratingCopy?'disabled':''} onclick="regenCopy(${di})">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+            </button>
+          </div>
+          <div class="tags-row" id="tags-${di}">${tags}</div>
+        </div>
+        <div class="field"><label>发布时间</label>
+          <input type="datetime-local" value="${c.publishTime}" oninput="contents[${di}].publishTime=this.value">
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function regenTitle(di) {
+  titleStatuses[di] = 'generating';
+  renderContentCard(di);
+  // TODO: POST /api/content/generate-title { prompt, script: transcriptions[di] }
+  //       response.title → contents[di].title = response.title
+  setTimeout(() => {
+    titleStatuses[di] = 'idle';
+    renderContentCard(di);
+    debouncedSave();
+  }, 1500);
+}
+
+function regenCopy(di) {
+  copyStatuses[di] = 'generating';
+  renderContentCard(di);
+  // TODO: POST /api/content/generate-copy { prompt, title: contents[di].title, script: transcriptions[di] }
+  //       response.description → contents[di].description
+  //       response.seo_tags   → contents[di].seo = response.seo_tags.join(' ')
+  setTimeout(() => {
+    copyStatuses[di] = 'idle';
+    renderContentCard(di);
+    debouncedSave();
+  }, 1800);
+}
+
+function regenCover(di) {
+  coverStatuses[di] = 'generating';
+  renderContentCard(di);
+  // TODO: POST /api/content/generate-cover { image_id, title, prompt }
+  //       response.cover_url → contents[di].coverUrl = response.cover_url
+  setTimeout(() => {
+    coverStatuses[di] = 'idle';
+    // contents[di].coverUrl = response.cover_url;
+    renderContentCard(di);
+    debouncedSave();
+  }, 1800);
+}
+
+// ══ 导航 ══
+let currentStep = 1;
+let maxReachedStep = 1;
+const TOTAL_STEPS = 6;
+const DRAFT_KEY = 'xhs_batch_draft';
+
+// ── 草稿存取 ──
+let saveTimer;
+function debouncedSave() { clearTimeout(saveTimer); saveTimer = setTimeout(saveState, 600); }
+
+function saveState() {
+  const state = {
+    savedAt: Date.now(),
+    currentStep, maxReachedStep,
+    contentPlanIds: contentPlan.map(item => item?.id ?? null),
+    transcriptions, transcribeStatuses,
+    currentPrompts,
+    images: IMAGES,
+    imgIdCounter, imgBatchCount,
+    imagePlanIds: imagePlan.map(img => img?.id ?? null),
+    videoStatuses, videoChecks, videoModels, videoUsedModels, videoIds, vidIdCounter,
+    coverStatuses, titleStatuses, copyStatuses, contents,
+  };
+  try { localStorage.setItem(DRAFT_KEY, JSON.stringify(state)); } catch(e) {}
+}
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(DRAFT_KEY);
+    if (!raw) return false;
+    const s = JSON.parse(raw);
+    currentStep    = s.currentStep    || 1;
+    maxReachedStep = s.maxReachedStep || 1;
+    contentPlan = (s.contentPlanIds || []).map(id => id ? CONTENT_RAW.find(c=>c.id===id)||null : null);
+    transcriptions = s.transcriptions || Array(7).fill('');
+    transcribeStatuses = s.transcribeStatuses || Array(7).fill('idle');
+    if (s.currentPrompts) Object.assign(currentPrompts, s.currentPrompts);
+    if (s.images?.length) { IMAGES.push(...s.images); imgIdCounter = s.imgIdCounter||1; imgBatchCount = s.imgBatchCount||0; }
+    imagePlan = (s.imagePlanIds || []).map(id => id ? IMAGES.find(img=>img.id===id)||null : null);
+    videoStatuses   = s.videoStatuses   || {};
+    videoChecks     = s.videoChecks     || {};
+    videoModels     = s.videoModels     || {};
+    videoUsedModels = s.videoUsedModels || {};
+    videoIds        = s.videoIds        || {};
+    if (s.vidIdCounter) vidIdCounter = s.vidIdCounter;
+    coverStatuses  = s.coverStatuses  || {};
+    titleStatuses  = s.titleStatuses  || Array(7).fill('idle');
+    copyStatuses   = s.copyStatuses   || Array(7).fill('idle');
+    if (s.contents) contents = s.contents;
+    return true;
+  } catch(e) { return false; }
+}
+
+function clearDraft() { localStorage.removeItem(DRAFT_KEY); }
+
+// ── 导航 ──
+function nextStep() {
+  if (currentStep < TOTAL_STEPS) {
+    currentStep++;
+    if (currentStep > maxReachedStep) maxReachedStep = currentStep;
+    renderStep();
+    debouncedSave();
+  }
+}
+
+function prevStep() {
+  if (currentStep > 1) { currentStep--; renderStep(); debouncedSave(); }
+}
+
+function goToStep(n) {
+  if (n === currentStep || n > maxReachedStep) return;
+  currentStep = n;
+  renderStep();
+  debouncedSave();
+}
+
+function renderStep() {
+  document.querySelectorAll(".section").forEach(s=>s.classList.remove("active"));
+  document.getElementById(`section${currentStep}`).classList.add("active");
+  document.querySelectorAll(".step").forEach((s,i)=>{
+    const n = i + 1;
+    s.classList.remove("active","done","reachable");
+    if (n === currentStep) s.classList.add("active");
+    else if (n <= maxReachedStep) { s.classList.add("done"); s.classList.add("reachable"); }
+  });
+  const back = document.getElementById("btn-back");
+  const next = document.getElementById("btn-next");
+  back.style.display = (currentStep>1&&currentStep<TOTAL_STEPS) ? "block" : "none";
+  next.style.display = currentStep===TOTAL_STEPS ? "none" : "block";
+
+  if (currentStep===1) {
+    next.textContent = "下一步：转写检查 →";
+    syncContentPlan();
+  } else if (currentStep===2) {
+    initPrompt('transcribe');
+    renderTranscribeCards();
+    next.textContent = "下一步：选底图 →";
+    next.disabled = false;
+    document.getElementById("progress-text").textContent = "检查并编辑 AI 转写的文案";
+  } else if (currentStep===3) {
+    initPrompt('image');
+    renderImagePlanSlots();
+    updateImageGenBar();
+    filterImagePool([]);
+    next.textContent = "下一步：检查视频 →";
+    syncImagePlan();
+  } else if (currentStep===4) {
+    initVideoSection();
+    next.textContent = "下一步：确认文案 →";
+  } else if (currentStep===5) {
+    initContentSection();
+    next.textContent = "✓ 全部确认，生成发布计划";
+    next.disabled = false;
+    document.getElementById("progress-text").textContent = "检查并编辑每天的文案和发布时间";
+  } else if (currentStep===6) {
+    document.getElementById("progress-text").textContent = "🎉 本周内容已全部确认";
+    renderScheduleSummary();
+    clearDraft();
+  }
+}
+
+function renderScheduleSummary() {
+  document.getElementById("schedule-summary").innerHTML = DAYS.map((day,di) => {
+    const c = contents[di];
+    const dt = new Date(c.publishTime);
+    const ts = dt.toLocaleString("zh-CN",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"});
+    return `<div class="schedule-item">
+      <span class="day-name">${day.day} · ${c.title.substring(0,14)}${c.title.length>14?"…":""}</span>
+      <span class="pub-time">📅 ${ts}</span>
+    </div>`;
+  }).join("");
+}
+
+function exportJSON() {
+  const result = DAYS.map((day,di) => ({
+    day:day.day, date:day.date,
+    referenceId: contentPlan[di]?.id,
+    referenceTitle: contentPlan[di]?.title,
+    referenceAccount: ACCOUNTS.find(a=>a.id===contentPlan[di]?.acc)?.name,
+    transcribedScript: transcriptions[di] || "",
+    imageId: imagePlan[di]?.id,
+    imageLabel: imagePlan[di]?.label,
+    videoId: videoIds[di] || null,
+    videoApproved: videoChecks[di]||false,
+    title: contents[di].title,
+    description: contents[di].description,
+    seo: contents[di].seo,
+    coverUrl: contents[di].coverUrl || null,
+    publishTime: contents[di].publishTime,
+  }));
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(result,null,2)],{type:"application/json"}));
+  a.download = "batch_selections.json";
+  a.click();
+  clearDraft();
+}
+
+// ══ 灯箱 ══
+function openLightbox(bg, title, label, ratio) {
+  const inner = document.getElementById('lightbox-inner');
+  inner.style.background = bg;
+  inner.textContent = title || '';
+  inner.style.aspectRatio = ratio || '3/4';
+  const lbLabel = document.getElementById('lightbox-label');
+  lbLabel.textContent = label || '';
+  lbLabel.style.display = label ? '' : 'none';
+  document.getElementById('lightbox-wrap').style.width = (ratio === '9/16') ? 'min(240px,70vw)' : 'min(360px,88vw)';
+  document.getElementById('lightbox').classList.add('open');
+  document.addEventListener('keydown', onLightboxKey);
+}
+function closeLightbox() {
+  document.getElementById('lightbox').classList.remove('open');
+  document.removeEventListener('keydown', onLightboxKey);
+}
+function closeLightboxIfBg(e) { if (e.target === document.getElementById('lightbox')) closeLightbox(); }
+function onLightboxKey(e) { if (e.key === 'Escape') closeLightbox(); }
+
+// ══ 初始化 ══
+contentPool.sort((a,b)=>b.total-a.total);
+loadState();
+renderAccountFilters();
+filterContentPool();
+renderContentPlanSlots();
+syncContentPlan();
+renderStep();
+</script>
+
+<!-- 大图灯箱 -->
+<div class="lightbox-overlay" id="lightbox" onclick="closeLightboxIfBg(event)">
+  <div class="lightbox-wrap" id="lightbox-wrap">
+    <button class="lightbox-close" onclick="closeLightbox()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+    <div class="lightbox-box" id="lightbox-box">
+      <div class="lightbox-inner" id="lightbox-inner"></div>
+      <div class="lightbox-label" id="lightbox-label"></div>
+    </div>
+  </div>
+</div>
+</body>
+</html>
