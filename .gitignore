@@ -1,0 +1,7 @@
+# 本地文档，不同步至 GitHub
+功能说明.md
+PRD.md
+
+# Python
+*.pyc
+__pycache__/
