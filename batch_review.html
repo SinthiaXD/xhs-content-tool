@@ -74,6 +74,8 @@
   /* 展开文字稿（只读） */
   .pool-item-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; flex-direction: row; align-self: flex-start; margin-top: 2px; }
   .pool-expand-btn { padding: 5px 12px; border-radius: 20px; border: 1px solid #e5e5e5; background: #fff; font-size: 12px; color: #666; cursor: pointer; white-space: nowrap; transition: all 0.15s; }
+  .pool-link-btn { padding: 5px 12px; border-radius: 20px; border: 1px solid #e5e5e5; background: #fff; font-size: 12px; color: #666; text-decoration: none; white-space: nowrap; transition: all 0.15s; }
+  .pool-link-btn:hover { background: #f5f5f7; color: #1d1d1f; }
   .pool-expand-btn:hover { background: #f5f5f7; }
   .pool-expand-btn.open { background: #f5f5f7; border-color: #ccc; }
   .pool-script { display: none; margin-top: 14px; padding-top: 14px; border-top: 1px solid #f0f0f0; }
@@ -556,41 +558,41 @@ const ACCOUNTS = [
 ];
 
 const CONTENT_RAW = [
-  { id:1,  acc:1, title:"为什么越努力的人越焦虑？心理学给出答案",   likes:8420, comments:312, saves:2100, duration:"1:48", heat:96, persona:88, date:"05-05",
+  { id:1,  acc:1, title:"为什么越努力的人越焦虑？心理学给出答案",   likes:8420, comments:312, saves:2100, duration:"1:48", heat:96, persona:88, date:"05-05", url:"https://www.xiaohongshu.com/explore/6638a1f2000000001e029f01",
     script:"你有没有发现，越是拼命努力的人，反而越容易焦虑？这听起来很矛盾，但心理学里有一个词叫「过度补偿」。当我们对自己的现状感到不安，就会用不断努力来填补内心的空洞。但问题是，这种努力不是从热爱出发，而是从恐惧出发。恐惧自己不够好，恐惧被别人超过，恐惧停下来就会失去一切。所以哪怕已经很累了，还是停不下来。真正的解法不是更努力，而是先问自己：我在为谁而努力？如果答案是「为了证明自己」，那焦虑只会越来越深。" },
-  { id:2,  acc:1, title:"情绪价值才是亲密关系的核心货币",           likes:5200, comments:198, saves:1600, duration:"1:55", heat:85, persona:90, date:"05-06",
+  { id:2,  acc:1, title:"情绪价值才是亲密关系的核心货币",           likes:5200, comments:198, saves:1600, duration:"1:55", heat:85, persona:90, date:"05-06", url:"https://www.xiaohongshu.com/explore/6638a1f2000000001e029f02",
     script:"很多人谈恋爱，谈的是条件：学历、收入、身高、颜值。但真正让一段关系走得长久的，是情绪价值。什么叫情绪价值？就是当你在ta身边，你感到被看见、被接纳、被珍视。你说的话有人认真听，你的难过有人真的在乎，你的快乐有人真心为你高兴。这种感受，是任何物质都替代不了的。所以选伴侣，不只是看ta能给你什么，更要看ta让你感受到什么。一个让你经常感到委屈、紧绷、需要小心翼翼的人，无论条件多好，都很难走远。" },
-  { id:3,  acc:1, title:"高敏感人群如何找到自己的节奏",             likes:4100, comments:154, saves:1300, duration:"2:02", heat:79, persona:91, date:"05-07",
+  { id:3,  acc:1, title:"高敏感人群如何找到自己的节奏",             likes:4100, comments:154, saves:1300, duration:"2:02", heat:79, persona:91, date:"05-07", url:"https://www.xiaohongshu.com/explore/6638a1f2000000001e029f03",
     script:"如果你经常觉得自己太敏感了，一件小事就能影响你一整天，别人一句无心的话让你想很久——你可能是一个高敏感人。高敏感不是缺陷，心理学研究显示大约20%的人天生具有更深度的信息处理能力。但高敏感的人也更容易被外界信息淹没，所以找到自己的节奏特别重要。第一，给自己留足「独处时间」来恢复能量。第二，减少无效社交，选择让你感到舒适的人相处。第三，学会识别哪些是真实的威胁，哪些只是大脑在过度解读。你不需要变得不敏感，只需要学会和自己的敏感做朋友。" },
-  { id:4,  acc:2, title:"学会这3句话，你的情绪会稳很多",            likes:6230, comments:198, saves:3400, duration:"1:52", heat:89, persona:92, date:"05-04",
+  { id:4,  acc:2, title:"学会这3句话，你的情绪会稳很多",            likes:6230, comments:198, saves:3400, duration:"1:52", heat:89, persona:92, date:"05-04", url:"https://www.xiaohongshu.com/explore/6638a1f2000000001e029f04",
     script:"今天分享3句话，真的很管用。第一句：「我现在有情绪，这很正常。」很多人情绪一来，第一反应是压制它，觉得自己不应该有这种感受。但其实，允许情绪存在，才是管理情绪的第一步。第二句：「这件事五年后还重要吗？」很多让我们抓狂的事，放在时间长河里根本不值一提。这句话能帮你快速拉开距离感。第三句：「我能控制的是我的反应，不是别人的行为。」当你接受了这个事实，你就不会再把精力浪费在改变别人上了。" },
-  { id:5,  acc:2, title:"允许自己软弱，才是真正的强大",             likes:3800, comments:142, saves:1900, duration:"1:44", heat:77, persona:93, date:"05-06",
+  { id:5,  acc:2, title:"允许自己软弱，才是真正的强大",             likes:3800, comments:142, saves:1900, duration:"1:44", heat:77, persona:93, date:"05-06", url:"https://www.xiaohongshu.com/explore/6638a1f2000000001e029f05",
     script:"我们从小被教导要坚强，要撑住，不能轻易倒下。但很少有人告诉我们，允许自己软弱，其实需要更大的勇气。软弱意味着你承认了自己的极限。你说「我最近很累」而不是「我没事」。你说「我需要帮助」而不是独自硬撑。这种诚实，对自己和对别人，都需要力量。真正强大的人，不是从不崩溃的人，而是崩溃之后还能重新站起来的人。所以今天如果你感到很难，请允许自己难。这不是软弱，这是你在好好爱自己。" },
-  { id:6,  acc:2, title:"那些内心安静的人，都做对了什么",           likes:7100, comments:267, saves:2800, duration:"1:50", heat:91, persona:94, date:"05-07",
+  { id:6,  acc:2, title:"那些内心安静的人，都做对了什么",           likes:7100, comments:267, saves:2800, duration:"1:50", heat:91, persona:94, date:"05-07", url:"https://www.xiaohongshu.com/explore/6638a1f2000000001e029f06",
     script:"你有没有羡慕过那种内心很安静的人？无论外界多嘈杂，她都好像有一个稳定的内核，不容易被带着走。这种内心的安静不是天生的，是练出来的。她们通常有几个共同点：第一，她们不跟每一个人解释自己。她们知道，真正理解你的人不需要解释，不理解你的人解释了也没用。第二，她们学会了和「不确定性」共存。不是所有问题都需要马上有答案，焦虑大多来自我们对未知的抗拒。第三，她们有自己的精神滋养来源。一本书、一段音乐、一个人，能让她们回到自己。内心的安静，是你给自己最好的礼物。" },
-  { id:7,  acc:3, title:"内耗的根源，不是你想太多",                 likes:12800,comments:541, saves:5200, duration:"2:01", heat:98, persona:90, date:"05-03",
+  { id:7,  acc:3, title:"内耗的根源，不是你想太多",                 likes:12800,comments:541, saves:5200, duration:"2:01", heat:98, persona:90, date:"05-03", url:"https://www.xiaohongshu.com/explore/6638a1f2000000001e029f07",
     script:"很多人以为内耗是因为想太多。其实不是。内耗的根源，是你内心有两个声音在打架，而且打了很久，谁也赢不了谁。一个声音说「你应该去做」，另一个声音说「你做不好的」。一个声音说「你值得被爱」，另一个声音说「你哪里值得」。这种内在的冲突，才是真正耗尽你能量的东西。所以解决内耗，不是让自己「别想了」，而是去弄清楚：这两个声音，哪一个才是真正的你？另一个，是谁的声音？很多时候你会发现，那个否定你的声音，其实是从别人那里内化来的。认出它，才能慢慢放下它。" },
-  { id:8,  acc:3, title:"为什么有些人永远不缺乏安全感",             likes:9200, comments:388, saves:4100, duration:"1:57", heat:94, persona:87, date:"05-05",
+  { id:8,  acc:3, title:"为什么有些人永远不缺乏安全感",             likes:9200, comments:388, saves:4100, duration:"1:57", heat:94, persona:87, date:"05-05", url:"https://www.xiaohongshu.com/explore/6638a1f2000000001e029f08",
     script:"安全感这件事，一直以来都被误解了。很多人以为安全感来自稳定的关系、稳定的收入、稳定的生活。但你去观察那些真正有安全感的人，你会发现一件有意思的事：她们的生活不一定比你稳定，但她们相信自己有能力应对变化。这就是安全感的真相——它不是来自外部环境的稳定，而是来自你对自己的信任。「就算事情不顺，我也能想到办法。」「就算有人离开，我也不会失去自己。」这种对自己的底气，才是安全感真正的来源。而这种底气，是一点一点积累出来的。" },
-  { id:9,  acc:3, title:"停止讨好，从这一刻开始",                   likes:7600, comments:310, saves:3300, duration:"1:49", heat:92, persona:89, date:"05-07",
+  { id:9,  acc:3, title:"停止讨好，从这一刻开始",                   likes:7600, comments:310, saves:3300, duration:"1:49", heat:92, persona:89, date:"05-07", url:"https://www.xiaohongshu.com/explore/6638a1f2000000001e029f09",
     script:"讨好型人格有一个很大的误区：以为只要自己足够好，足够配合，别人就会喜欢自己。但现实往往相反。你越是无条件满足别人，别人越不会珍惜你。因为人天生对「容易得到的」不太在乎。停止讨好，不是让你变得冷漠自私，而是开始诚实。诚实地表达你的需要：「这件事我做不到。」诚实地设定你的边界：「这样对我不尊重，我需要你改变。」刚开始这样做会很难，甚至会害怕失去一些人。但你会发现，真正留下来的人，才是真的喜欢你这个人，而不只是喜欢你的顺从。" },
-  { id:10, acc:4, title:"哄自己开心，是一种高级能力",               likes:4100, comments:287, saves:1890, duration:"1:44", heat:82, persona:95, date:"05-04",
+  { id:10, acc:4, title:"哄自己开心，是一种高级能力",               likes:4100, comments:287, saves:1890, duration:"1:44", heat:82, persona:95, date:"05-04", url:"https://www.xiaohongshu.com/explore/6638a1f2000000001e029f10",
     script:"我发现，很多人不太会哄自己开心。心情不好的时候，要么硬撑着，要么等别人来哄。但有一种人不一样，她们知道怎么照顾自己的情绪：今天很累了，就去买一杯喜欢的咖啡；今天有点伤心，就打开一部老电影，允许自己哭一场；今天觉得无聊，就去做一件之前一直想做但没做的小事。这不是在逃避，这是在主动管理自己的状态。当你学会了哄自己开心，你对别人的依赖就少了很多，内心也会踏实很多。哄自己开心，是对自己最温柔的负责。" },
-  { id:11, acc:4, title:"你有没有认真爱过自己？",                   likes:5500, comments:231, saves:2400, duration:"1:51", heat:87, persona:96, date:"05-06",
+  { id:11, acc:4, title:"你有没有认真爱过自己？",                   likes:5500, comments:231, saves:2400, duration:"1:51", heat:87, persona:96, date:"05-06", url:"https://www.xiaohongshu.com/explore/6638a1f2000000001e029f11",
     script:"问你一个问题：你上一次认真对自己好，是什么时候？不是因为要奖励自己完成了什么，不是因为犒劳一下辛苦的自己——就只是，单纯地因为「我值得」，而对自己好。很多人把爱自己挂在嘴边，但生活里，对自己最苛刻的往往也是自己。嫌自己不够瘦，嫌自己不够努力，嫌自己不够聪明。但你对朋友会这样吗？如果一个你在乎的人正在经历你正在经历的事，你会怎么跟她说话？用那种方式，跟自己说话。这才是爱自己的开始。" },
-  { id:12, acc:4, title:"生活中那些细小的治愈瞬间",                 likes:3200, comments:176, saves:1600, duration:"1:40", heat:74, persona:92, date:"05-07",
+  { id:12, acc:4, title:"生活中那些细小的治愈瞬间",                 likes:3200, comments:176, saves:1600, duration:"1:40", heat:74, persona:92, date:"05-07", url:"https://www.xiaohongshu.com/explore/6638a1f2000000001e029f12",
     script:"最近在收集生活里那些小小的治愈瞬间。早上窗帘透进来的第一缕光。泡了很久的脚终于放松下来的感觉。和一个很久没联系的朋友突然聊起来，发现彼此都还好。买到了一直想要但一直舍不得的东西。把房间收拾整洁之后坐在那里发呆。这些小事，没有什么大道理，但它们真实地存在于生活里，像小小的锚，让你在漂着的时候能落回来。我们不需要等待一个「一切都好」的未来才开始感受幸福，幸福就藏在这些细碎的瞬间里。" },
-  { id:13, acc:5, title:"真正的自律，是对自己温柔",                 likes:5500, comments:176, saves:2700, duration:"1:50", heat:86, persona:93, date:"05-04",
+  { id:13, acc:5, title:"真正的自律，是对自己温柔",                 likes:5500, comments:176, saves:2700, duration:"1:50", heat:86, persona:93, date:"05-04", url:"https://www.xiaohongshu.com/explore/6638a1f2000000001e029f13",
     script:"很多人理解的自律是：严格、克制、不能放松，稍微懈怠一下就要自我惩罚。但这种自律很难长久，因为它是建立在恐惧上的。真正持久的自律，其实更接近一种「对自己的温柔」。你知道什么对你好，所以你去做——不是因为你必须，而是因为你想照顾好自己。你今天没能做到，不是因为你太差劲，而是因为今天确实有点难，明天再来。这种与自己的关系，才能走得远。严苛的自律会让你精疲力竭，温柔的自律会让你越来越有力量。" },
-  { id:14, acc:5, title:"不要把努力当成惩罚自己的方式",             likes:4800, comments:201, saves:2200, duration:"1:55", heat:83, persona:91, date:"05-05",
+  { id:14, acc:5, title:"不要把努力当成惩罚自己的方式",             likes:4800, comments:201, saves:2200, duration:"1:55", heat:83, persona:91, date:"05-05", url:"https://www.xiaohongshu.com/explore/6638a1f2000000001e029f14",
     script:"你有没有发现，有些人的努力看起来很沉重？好像在用拼命工作来赎什么罪，或者证明什么。这种努力是一种惩罚——惩罚自己过去的不够好，惩罚自己现在的不够多。但努力本来不是这样的。努力应该是从好奇出发，从热爱出发，是因为你想看到某件事发生，所以你去做。如果你发现自己在用「忙碌」来逃避某些东西，在用「努力」来麻痹某种不安，那不妨停下来问问自己：我到底在追什么？是我真正想要的，还是我以为我应该要的？" },
-  { id:15, acc:5, title:"慢下来，才能走得更远",                     likes:3900, comments:158, saves:1800, duration:"1:46", heat:78, persona:90, date:"05-07",
+  { id:15, acc:5, title:"慢下来，才能走得更远",                     likes:3900, comments:158, saves:1800, duration:"1:46", heat:78, persona:90, date:"05-07", url:"https://www.xiaohongshu.com/explore/6638a1f2000000001e029f15",
     script:"这个时代告诉我们要快：快速成长，快速变现，快速达到目标。但有一个悖论是，很多真正走得远的人，都有意识地在某些时候让自己慢下来。慢下来不是懒，是让自己有时间思考：我现在做的事，是我真正想做的吗？这个方向，真的是我要去的吗？高速运转的时候，你很难看清这些。就像一辆车开得太快，转弯就会失控。慢下来，是为了看清路，也是为了看清自己。然后再出发，走得更稳，也更远。" },
-  { id:16, acc:1, title:"一个人的情绪稳定，值多少钱",               likes:6800, comments:289, saves:2900, duration:"1:53", heat:90, persona:88, date:"05-08",
+  { id:16, acc:1, title:"一个人的情绪稳定，值多少钱",               likes:6800, comments:289, saves:2900, duration:"1:53", heat:90, persona:88, date:"05-08", url:"https://www.xiaohongshu.com/explore/6638a1f2000000001e029f16",
     script:"有人问我，情绪稳定真的那么重要吗？我说，你算一算就知道了。因为情绪失控跟朋友吵架，修复关系花了多少时间和精力？因为焦虑睡不着觉，第二天效率低下，错过了多少机会？因为情绪化做了冲动决定，付出了多少代价？情绪稳定不是没有情绪，而是你的情绪不会控制你的行为。你可以愤怒，但你不会在愤怒时做出伤害自己和别人的事。你可以难过，但你不会在难过时觉得世界末日。这种能力，在人际关系里，在职场里，在生活的每一个角落，都在悄悄起作用。" },
-  { id:17, acc:3, title:"心理学：为什么你总是选错人",               likes:10200,comments:445, saves:4600, duration:"2:03", heat:96, persona:85, date:"05-08",
+  { id:17, acc:3, title:"心理学：为什么你总是选错人",               likes:10200,comments:445, saves:4600, duration:"2:03", heat:96, persona:85, date:"05-08", url:"https://www.xiaohongshu.com/explore/6638a1f2000000001e029f17",
     script:"心理学里有一个概念叫「强迫性重复」。就是说，我们会在亲密关系里，不断重复童年时期熟悉的相处模式——哪怕那种模式让我们很痛苦。如果你小时候总是要努力表现才能得到父母的认可，长大后你可能会不自觉地被那种「需要你证明自己」的伴侣吸引。如果你小时候生活在一个情绪不稳定的家庭，你可能会觉得「平静的关系」反而让你不安，觉得缺点什么。所以不是你选人的眼光差，而是你还没有意识到自己在重复什么。意识到这件事，是做出改变的第一步。" },
-  { id:18, acc:4, title:"周末一个人独处，我都在做这件事",           likes:5100, comments:224, saves:2500, duration:"1:58", heat:85, persona:94, date:"05-08",
+  { id:18, acc:4, title:"周末一个人独处，我都在做这件事",           likes:5100, comments:224, saves:2500, duration:"1:58", heat:85, persona:94, date:"05-08", url:"https://www.xiaohongshu.com/explore/6638a1f2000000001e029f18",
     script:"分享一下我的周末独处routine。早上不设闹钟，自然醒之后先不看手机，就是发一会儿呆，让大脑慢慢苏醒。然后泡一杯茶或者咖啡，坐在窗边，随便翻一本书，不一定要认真看，就是让自己在文字里漂一会儿。下午如果天气好，会出去走走，没有目的地那种，就是随便逛。晚上可能会做一顿简单但认真的饭，然后看一部老电影，或者写一点日记。没有什么特别的，但这些时间会让我感觉，我在认真地活着，而不是被日程表推着走。你的独处时间，是用来做什么的？" },
 ];
 CONTENT_RAW.forEach(item => { item.total = Math.round(item.heat*0.4 + item.persona*0.6); });
@@ -706,6 +708,7 @@ function renderContentPool(items) {
       </div>
       <div class="pool-item-actions">
         <button class="pool-expand-btn" onclick="toggleScript(${item.id})">展开文字</button>
+        ${item.url ? `<a class="pool-link-btn" href="${item.url}" target="_blank" rel="noopener">原链接 ↗</a>` : ""}
         <button class="pool-add-btn ${inPlan?"added":""}" ${inPlan||planFull?"disabled":""}
           onclick="${inPlan?"":"addContentToPlan("+item.id+")"}">
           ${inPlan?"✓ 已加入":"+ 加入计划"}
