@@ -251,6 +251,15 @@
   .tags-row { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 5px; }
   .tag { background: #fff0f3; color: #fe2c55; font-size: 11px; padding: 3px 9px; border-radius: 20px; border: 1px solid #ffd6de; }
 
+  /* ── 已发布锁定状态 ── */
+  .card-published { position: relative; opacity: 0.72; }
+  .card-published input, .card-published textarea { background: #f5f5f7 !important; color: #999 !important; pointer-events: none; }
+  .card-published button:not(.vid-id-copy-btn) { display: none !important; }
+  .card-published a { display: none !important; }
+  .publish-lock-badge { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; color: #888; background: #f0f0f0; border-radius: 20px; padding: 3px 10px; }
+  .plan-slot.slot-published .slot-btn.remove { display: none; }
+  .plan-slot.slot-published .slot-btn { opacity: 0.4; pointer-events: none; }
+
   /* ── 底部操作栏 ── */
   .action-bar { position: fixed; bottom: 0; left: 0; right: 0; background: rgba(255,255,255,0.95); backdrop-filter: blur(12px); border-top: 1px solid #e5e5e5; padding: 14px 40px; display: flex; align-items: center; justify-content: space-between; z-index: 50; }
   .progress-text { font-size: 14px; color: #666; }
@@ -756,17 +765,19 @@ function renderContentPlanSlots() {
   document.getElementById("content-plan-slots").innerHTML = DAYS.map((day,i) => {
     const item = contentPlan[i];
     const acc = item ? ACCOUNTS.find(a=>a.id===item.acc) : null;
+    const published = itemStatuses[i] === 'published';
     return `
-    <div class="plan-slot ${item?"filled":""}">
+    <div class="plan-slot ${item?"filled":""} ${published?"slot-published":""}">
       <div class="plan-slot-day">${day.day}</div>
       <div class="plan-slot-content">
         ${item
-          ? `<div class="plan-slot-title">${item.title}</div><div class="plan-slot-sub">${acc.name}</div>`
+          ? `<div class="plan-slot-title">${item.title}</div>
+             <div class="plan-slot-sub">${acc.name}${published?' · <span style="color:#34c759">已发布</span>':''}</div>`
           : `<div class="plan-slot-empty">点击左侧内容加入</div>`}
       </div>
       ${item ? `<div class="plan-slot-actions">
-        <button class="slot-btn" onclick="moveContentPlan(${i},-1)" ${i===0?"disabled":""}>↑</button>
-        <button class="slot-btn" onclick="moveContentPlan(${i},1)"  ${i===6?"disabled":""}>↓</button>
+        <button class="slot-btn" onclick="moveContentPlan(${i},-1)" ${i===0||published?"disabled":""}>↑</button>
+        <button class="slot-btn" onclick="moveContentPlan(${i},1)"  ${i===6||published?"disabled":""}>↓</button>
         <button class="slot-btn remove" onclick="removeContentFromPlan(${i})">✕</button>
       </div>` : ""}
     </div>`;
@@ -895,11 +906,13 @@ function renderTranscribeCard(di) {
   const original = item.script || "";
   const transcribed = transcriptions[di];
   const isGenerating = transcribeStatuses[di] === 'generating';
+  const isPublished = itemStatuses[di] === 'published';
   document.getElementById(`tcards-${di}`).outerHTML = `
-  <div class="transcribe-card" id="tcards-${di}">
+  <div class="transcribe-card${isPublished?' card-published':''}" id="tcards-${di}">
     <div class="transcribe-card-header">
       <span class="day-tag">${day.day}</span>
       <span class="transcribe-card-title">${item.title}</span>
+      ${isPublished ? `<span class="publish-lock-badge">🔒 已发布</span>` : ''}
       <button class="transcribe-regen-btn" id="trans-regen-${di}"
         ${isGenerating ? 'disabled' : ''} onclick="regenTranscription(${di})">
         ${isGenerating ? '生成中…' : '重新生成'}
@@ -912,9 +925,9 @@ function renderTranscribeCard(di) {
         <div class="transcribe-col-footer">${original.length} 字</div>
       </div>
       <div>
-        <div class="transcribe-col-label">转写文案（可编辑）</div>
+        <div class="transcribe-col-label">转写文案${isPublished ? '' : '（可编辑）'}</div>
         <textarea class="transcribe-textarea${isGenerating?' generating':''}" id="trans-${di}"
-          ${isGenerating ? 'disabled' : ''}
+          ${isGenerating || isPublished ? 'disabled' : ''}
           oninput="onTranscribeInput(${di}, this)">${transcribed}</textarea>
         <div class="transcribe-col-footer">
           <span id="trans-count-${di}">${transcribed.length} 字</span>
@@ -983,18 +996,23 @@ function renderImagePool(items, highlightIds=[]) {
   pool.innerHTML = items.map((img, idx) => {
     const inPlan = inPlanIds.has(img.id);
     const slotIdx = imagePlan.findIndex(p=>p&&p.id===img.id);
+    const isPublishedSlot = slotIdx >= 0 && itemStatuses[slotIdx] === 'published';
     const dayLabel = slotIdx>=0 ? DAYS[slotIdx].day : "";
     const isNew = highlightIds.includes(img.id);
     const delay = isNew ? `animation-delay:${highlightIds.indexOf(img.id)*0.07}s` : "";
     const lbBg = `linear-gradient(160deg,${img.c1},${img.c2})`;
+    const clickHandler = inPlan
+      ? (isPublishedSlot ? "" : `removeImageFromPlanById(${img.id})`)
+      : (planFull ? "" : `addImageToPlan(${img.id})`);
     return `
     <div class="img-pool-item ${inPlan?"selected":""} ${isNew?"new-batch":""}" id="img-pool-${img.id}"
-      style="${delay}" onclick="${inPlan?"removeImageFromPlanById("+img.id+")":planFull?"":"addImageToPlan("+img.id+")"}">
+      style="${delay}${isPublishedSlot?';cursor:default':''}" onclick="${clickHandler}">
       <div class="img-pool-face" style="background:${lbBg}">
         <div class="img-num">#${img.id}</div>
         <div class="img-label">${img.label}</div>
       </div>
       ${isNew ? `<div class="img-new-badge">NEW</div>` : ""}
+      ${isPublishedSlot ? `<div class="img-new-badge" style="background:#888">🔒</div>` : ''}
       <div class="img-check-badge">✓</div>
       <div class="img-day-badge">${dayLabel}</div>
       <button class="img-zoom-btn" title="查看大图"
@@ -1046,18 +1064,19 @@ function syncImagePlan() {
 function renderImagePlanSlots() {
   document.getElementById("image-plan-slots").innerHTML = DAYS.map((day,i) => {
     const img = imagePlan[i];
+    const published = itemStatuses[i] === 'published';
     return `
-    <div class="plan-slot ${img?"filled":""}">
+    <div class="plan-slot ${img?"filled":""} ${published?"slot-published":""}">
       <div class="plan-slot-day">${day.day}</div>
       ${img ? `<div class="plan-slot-thumb" style="background:linear-gradient(160deg,${img.c1},${img.c2})"></div>` : ""}
       <div class="plan-slot-content">
         ${img
-          ? `<div class="plan-slot-title">${img.label}</div><div class="plan-slot-sub">${img.style}系</div>`
+          ? `<div class="plan-slot-title">${img.label}</div><div class="plan-slot-sub">${img.style}系${published?' · <span style="color:#34c759">已发布</span>':''}</div>`
           : `<div class="plan-slot-empty">点击左侧底图加入</div>`}
       </div>
       ${img ? `<div class="plan-slot-actions">
-        <button class="slot-btn" onclick="moveImagePlan(${i},-1)" ${i===0?"disabled":""}>↑</button>
-        <button class="slot-btn" onclick="moveImagePlan(${i},1)"  ${i===6?"disabled":""}>↓</button>
+        <button class="slot-btn" onclick="moveImagePlan(${i},-1)" ${i===0||published?"disabled":""}>↑</button>
+        <button class="slot-btn" onclick="moveImagePlan(${i},1)"  ${i===6||published?"disabled":""}>↓</button>
         <button class="slot-btn remove" onclick="removeImageFromPlan(${i})">✕</button>
       </div>` : ""}
     </div>`;
@@ -1156,8 +1175,9 @@ function renderVideoCard(di) {
   const title = contentPlan[di]?.title || "";
   const statusLabels = { idle:'等待生成', generating:'生成中', success:'生成成功', failed:'生成失败' };
   const statusClasses = { idle:'s-idle', generating:'s-generating', success:'s-success', failed:'s-failed' };
+  const isPublished = itemStatuses[di] === 'published';
   const spinnerHtml = st==='generating' ? `<span class="vid-spinner-sm"></span>` : '';
-  const modelDisabled = st === 'generating' ? 'disabled' : '';
+  const modelDisabled = (st === 'generating' || isPublished) ? 'disabled' : '';
   const modelToggle = `<div class="vid-card-model-group">
     <button class="vid-card-model-btn ${cardModel==='5B'?'active':''}" ${modelDisabled} onclick="switchCardModel(${di},'5B')">5B</button>
     <button class="vid-card-model-btn ${cardModel==='14B'?'active':''}" ${modelDisabled} onclick="switchCardModel(${di},'14B')">14B</button>
@@ -1177,11 +1197,11 @@ function renderVideoCard(di) {
       <div class="video-player"><div style="text-align:center"><div style="font-size:32px;margin-bottom:8px">▶</div><div style="font-size:11px;opacity:0.5">${day.day} · 约2分钟</div></div></div>
       <div class="video-info">
         <h4>${title}</h4>
-        <p style="margin-bottom:8px">使用 <strong>${usedModel}</strong> 模型生成。请检查：口型是否自然、字幕有无错别字、背景是否干净。</p>
-        <div class="video-check ${checked?'checked':''}" id="vcheck-${di}" onclick="toggleVideoCheck(${di})">
+        <p style="margin-bottom:8px">使用 <strong>${usedModel}</strong> 模型生成。${isPublished ? '已发布，不可修改。' : '请检查：口型是否自然、字幕有无错别字、背景是否干净。'}</p>
+        ${isPublished ? '' : `<div class="video-check ${checked?'checked':''}" id="vcheck-${di}" onclick="toggleVideoCheck(${di})">
           <input type="checkbox" id="vcb-${di}" ${checked?'checked':''}>
           <label for="vcb-${di}">已检查视频效果，确认通过</label>
-        </div>
+        </div>`}
       </div>
     </div>`;
   } else {
@@ -1189,7 +1209,7 @@ function renderVideoCard(di) {
       <div class="vid-failed-msg">生成失败（${usedModel} 模型），请重新生成</div>
     </div>`;
   }
-  const regenBtn = st !== 'generating'
+  const regenBtn = !isPublished && st !== 'generating'
     ? `<button class="vid-card-regen-btn" onclick="retryVideo(${di})">${st==='idle'?'生成':'重新生成'}</button>`
     : '';
   const vid = videoIds[di];
@@ -1199,9 +1219,10 @@ function renderVideoCard(di) {
     <button class="vid-id-copy-btn" onclick="copyVidId(${di}, this)">复制 ID</button>
   </div>` : '';
   document.getElementById(`vid-card-${di}`).outerHTML = `
-  <div class="day-card ${st==='success'&&videoChecks[di]?'complete':''}" id="vid-card-${di}">
+  <div class="day-card ${st==='success'&&(videoChecks[di]||isPublished)?'complete':''} ${isPublished?'card-published':''}" id="vid-card-${di}">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
       <span class="day-tag">${day.day}</span>
+      ${isPublished ? `<span class="publish-lock-badge">🔒 已发布</span>` : ''}
       <span style="font-size:13px;color:#666;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${title}</span>
       ${modelToggle}
       <span class="vid-status-badge ${statusClasses[st]}">${spinnerHtml}${statusLabels[st]}</span>
@@ -1254,7 +1275,7 @@ let titleStatuses = Array(7).fill('idle'); // di → 'idle' | 'generating'
 let copyStatuses  = Array(7).fill('idle'); // di → 'idle' | 'generating'（同时控制文案+SEO）
 
 function initContentSection() {
-  contentPlan.forEach((item,di) => { if(item) contents[di].title = item.title; });
+  contentPlan.forEach((item,di) => { if(item && !contents[di].title) contents[di].title = item.title; });
   DAYS.forEach((_,di) => { if (!coverStatuses[di]) coverStatuses[di] = 'idle'; });
   initPrompt('title');
   initPrompt('cover');
@@ -1273,18 +1294,20 @@ function renderContentCard(di) {
   const c = contents[di];
   const img = imagePlan[di];
   const bg = img ? `linear-gradient(160deg,${img.c1},${img.c2})` : "linear-gradient(160deg,#c9a0dc,#9b6bb5)";
-  const isGeneratingCover = coverStatuses[di] === 'generating';
-  const isGeneratingTitle = titleStatuses[di] === 'generating';
-  const isGeneratingCopy  = copyStatuses[di]  === 'generating';
+  const isPublished = itemStatuses[di] === 'published';
+  const isGeneratingCover = !isPublished && coverStatuses[di] === 'generating';
+  const isGeneratingTitle = !isPublished && titleStatuses[di] === 'generating';
+  const isGeneratingCopy  = !isPublished && copyStatuses[di]  === 'generating';
   const coverOverlay = isGeneratingCover
     ? `<div class="cover-loading-overlay"><span class="vid-spinner-sm"></span> 生成中…</div>` : '';
   const tags = (c.seo||'').split(' ').filter(Boolean).map(t=>`<span class="tag">${t}</span>`).join('');
   const escapedBg5 = bg.replace(/'/g,"\\'");
   const escapedTitle5 = (c.title||'').replace(/'/g,"&#39;").replace(/"/g,"&quot;");
   document.getElementById(`content-card-${di}`).outerHTML = `
-  <div class="day-card complete" id="content-card-${di}">
+  <div class="day-card complete ${isPublished?'card-published':''}" id="content-card-${di}">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap">
       <span class="day-tag">${day.day} · ${day.date}</span>
+      ${isPublished ? `<span class="publish-lock-badge">🔒 已发布</span>` : ''}
       <span style="flex:1"></span>
       ${videoIds[di] ? `<span style="font-size:11px;color:#aaa">视频 ID</span><span class="vid-id-chip">${videoIds[di]}</span><button class="vid-id-copy-btn" onclick="copyVidId(${di}, this)">复制 ID</button>` : ''}
     </div>
@@ -1382,6 +1405,7 @@ let currentStep = 1;
 let maxReachedStep = 1;
 const TOTAL_STEPS = 6;
 const DRAFT_KEY = 'xhs_batch_draft';
+let itemStatuses = Array(7).fill('draft'); // 'published' | 'scheduled' | 'draft'
 
 // ── 草稿存取 ──
 let saveTimer;
@@ -1399,6 +1423,7 @@ function saveState() {
     imagePlanIds: imagePlan.map(img => img?.id ?? null),
     videoStatuses, videoChecks, videoModels, videoUsedModels, videoIds, vidIdCounter,
     coverStatuses, titleStatuses, copyStatuses, contents,
+    itemStatuses,
   };
   try { localStorage.setItem(DRAFT_KEY, JSON.stringify(state)); } catch(e) {}
 }
@@ -1426,6 +1451,13 @@ function loadState() {
     titleStatuses  = s.titleStatuses  || Array(7).fill('idle');
     copyStatuses   = s.copyStatuses   || Array(7).fill('idle');
     if (s.contents) contents = s.contents;
+    if (s.itemStatuses) itemStatuses = s.itemStatuses;
+    // 编辑已有内容：全部步骤解锁，默认落在步骤五
+    const hasFullPlan = contentPlan.filter(Boolean).length === 7;
+    if (hasFullPlan && maxReachedStep < TOTAL_STEPS) {
+      maxReachedStep = TOTAL_STEPS;
+    }
+    if (hasFullPlan && currentStep === 1) currentStep = 5;
     return true;
   } catch(e) { return false; }
 }
@@ -1447,7 +1479,8 @@ function prevStep() {
 }
 
 function goToStep(n) {
-  if (n === currentStep || n > maxReachedStep) return;
+  if (n === currentStep) return;
+  if (n > maxReachedStep) return;
   currentStep = n;
   renderStep();
   debouncedSave();
@@ -1554,9 +1587,87 @@ function closeLightbox() {
 function closeLightboxIfBg(e) { if (e.target === document.getElementById('lightbox')) closeLightbox(); }
 function onLightboxKey(e) { if (e.key === 'Escape') closeLightbox(); }
 
+// ══ 编辑模式填充 ══
+function populateCurrentWeekDemo() {
+  if (contentPlan.filter(Boolean).length === 7) return;
+
+  // 7条对标内容（对应本周7天）
+  const planIds = [6, 10, 11, 4, 1, 13, 18];
+  contentPlan = planIds.map(id => CONTENT_RAW.find(c => c.id === id) || null);
+
+  // 转写稿用原始文字稿
+  transcriptions = contentPlan.map(item => item ? (item.script || '') : '');
+
+  // 7张底图（颜色与首页本周条目对应）
+  const weekColors = [
+    { c1:"#c9a0dc", c2:"#9b6bb5", style:"中性" },
+    { c1:"#ffadad", c2:"#ff7b7b", style:"暖色" },
+    { c1:"#fdffb6", c2:"#f5e642", style:"暖色" },
+    { c1:"#ffc6ff", c2:"#ff8aff", style:"暖色" },
+    { c1:"#a0c4ff", c2:"#6fa3e8", style:"冷色" },
+    { c1:"#caffbf", c2:"#96e07e", style:"冷色" },
+    { c1:"#bde0fe", c2:"#80c4fd", style:"冷色" },
+  ];
+  IMAGES.length = 0;
+  imgBatchCount = 2;
+  weekColors.forEach((col, k) => {
+    IMAGES.push({ id: k + 1, style: col.style, c1: col.c1, c2: col.c2, label: `第1批 ${k+1}号`, batchId: 1 });
+  });
+  imgIdCounter = 8;
+  imagePlan = [...IMAGES];
+
+  // 视频全部已生成并确认
+  DAYS.forEach((_, di) => {
+    videoStatuses[di]   = 'success';
+    videoChecks[di]     = true;
+    videoModels[di]     = '14B';
+    videoUsedModels[di] = '14B';
+    videoIds[di]        = `VID-20260511-${String(di + 1).padStart(3, '0')}`;
+  });
+  vidIdCounter = 7;
+
+  // 文案（标题与首页本周条目一致）
+  const weekTitles = [
+    "那些活得通透的人，都在悄悄做这件事",
+    "心理学告诉你：快乐其实是一种能力",
+    "为什么越优秀的女性越懂得哄自己开心",
+    "情绪稳定的人，都有这个共同点",
+    "学会这3件事，你的内耗会少一半",
+    "真正的自律，是对自己温柔",
+    "周末一个人独处时，我都在做这件事",
+  ];
+  const weekTimes = [
+    "2026-05-11T10:00","2026-05-12T10:00","2026-05-13T10:00",
+    "2026-05-14T10:00","2026-05-15T10:00","2026-05-16T10:00","2026-05-17T10:00",
+  ];
+  const demoDesc = [
+    "活得通透的人，都有一个共同点：她们学会了和自己的情绪做朋友，而不是和它对抗。今天想和你聊聊，如何在日常中找回这份从容。",
+    "快乐其实是可以练习的能力。心理学研究发现，经常主动创造正向体验的人，幸福感会显著提升。从今天起，试着每天做一件让自己开心的小事。",
+    "越优秀的女性，越懂得把时间和精力花在哄自己开心上。这不是自私，这是对自己最高级的负责。",
+    "情绪稳定不是没有情绪，而是在有情绪时依然能做出理智的选择。今天分享几个实用的情绪调节方法。",
+    "内耗来自内心的两个声音相互拉扯。今天分享3件事，帮你减少这种内耗，把能量用在真正重要的地方。",
+    "真正的自律，不是对自己越来越严苛，而是越来越温柔。当你把照顾自己当成一件重要的事，自律才会变得可持续。",
+    "分享我周末独处时最爱做的几件事，简单的仪式感让我感觉在认真地活着，而不是被日程表推着走。",
+  ];
+  contents = DAYS.map((d, di) => ({
+    title:       weekTitles[di],
+    description: demoDesc[di],
+    seo:         "#心理学 #情绪管理 #高知女性 #自我成长 #心灵成长",
+    coverUrl:    "",
+    publishTime: weekTimes[di],
+  }));
+
+  maxReachedStep = 6;
+  currentStep    = 5;
+  saveState();
+}
+
 // ══ 初始化 ══
 contentPool.sort((a,b)=>b.total-a.total);
 loadState();
+if (new URLSearchParams(window.location.search).get('edit') === 'current') {
+  populateCurrentWeekDemo();
+}
 renderAccountFilters();
 filterContentPool();
 renderContentPlanSlots();

@@ -219,7 +219,7 @@
           <div class="week-created-title">05/11 - 05/17 · 7篇内容</div>
           <div class="week-created-sub">已发布 2 · 定时排队 5 · 全部就绪</div>
         </div>
-        <button class="btn-edit" onclick="window.location='batch_review.html'">编辑本周计划</button>
+        <button class="btn-edit" onclick="openWeekEdit()">编辑本周计划</button>
       </div>
       <div id="this-week-items"></div>
     </div>
@@ -452,6 +452,19 @@ document.addEventListener('click', e => {
 function discardDraft() {
   localStorage.removeItem('xhs_batch_draft');
   document.getElementById('draft-banner').style.display = 'none';
+}
+
+function openWeekEdit() {
+  try {
+    const weekItems = HISTORY[0].items;
+    const draft = {
+      itemStatuses: weekItems.map(item => item.status === 'published' ? 'published' : 'scheduled'),
+      maxReachedStep: 6,
+      currentStep: 5,
+    };
+    localStorage.setItem('xhs_batch_draft', JSON.stringify(draft));
+  } catch(e) {}
+  window.location = 'batch_review.html?edit=current';
 }
 </script>
 </body>
